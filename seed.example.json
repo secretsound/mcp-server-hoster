@@ -1,0 +1,24 @@
+{
+  "servers": [
+    {
+      "id": "time",
+      "name": "Time",
+      "transport": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-everything"],
+      "env": {},
+      "enabled": true,
+      "source": null
+    },
+    {
+      "id": "filesystem",
+      "name": "Filesystem",
+      "transport": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/data/workspaces/fs"],
+      "env": {},
+      "enabled": false,
+      "source": null
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+services:
+  mcp-hoster:
+    # Default pulls the published GHCR image. Override in .env after first publish:
+    #   MCP_HOSTER_IMAGE=ghcr.io/<owner>/<repo>:latest
+    # Local rebuild: docker compose up --build
+    image: ${MCP_HOSTER_IMAGE:-ghcr.io/OWNER/mcp_hoster:latest}
+    build:
+      context: .
+      target: production
+    pull_policy: ${MCP_HOSTER_PULL_POLICY:-missing}
+    ports:
+      - "8080:8080"
+    environment:
+      HOST_BIND: "0.0.0.0"
+      HOST_PORT: "8080"
+      DATA_DIR: "/data"
+      DATABASE_URL: "sqlite:///data/mcp-hoster.db"
+      SEED_PATH: "/app/seed.example.json"
+      MIGRATIONS_DIR: "/app/migrations"
+      # Required on first boot (fail-closed). Copy .env.example → .env or export these.
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:?Set BOOTSTRAP_ADMIN_EMAIL}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:?Set BOOTSTRAP_ADMIN_PASSWORD}
+      BOOTSTRAP_ADMIN_DISPLAY_NAME: ${BOOTSTRAP_ADMIN_DISPLAY_NAME:-Admin}
+    volumes:
+      - ./data:/data
+    # Nested user namespaces (bubblewrap) need a looser seccomp profile on many hosts.
+    # Landlock still works without this; remove if your runtime forbids it.
+    security_opt:
+      - seccomp:unconfined
+    restart: unless-stopped

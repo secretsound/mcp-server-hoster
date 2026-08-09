@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Install sandbox tooling
+        run: sudo apt-get update && sudo apt-get install -y bubblewrap python3
+
+      - name: Typecheck
+        run: deno task check
+
+      - name: Auth + unit tests
+        run: deno task test:auth
+
+      - name: Frontend install + build
+        run: |
+          deno task ui:install
+          deno task ui:build

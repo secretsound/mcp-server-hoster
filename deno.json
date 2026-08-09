@@ -1,0 +1,31 @@
+{
+  "name": "mcp-hoster",
+  "version": "0.1.0",
+  "exports": "./src/main.ts",
+  "tasks": {
+    "start": "deno run --allow-all src/main.ts",
+    "dev:api": "deno run --allow-all --watch src/main.ts",
+    "ui:dev": "cd frontend && deno task dev",
+    "ui:build": "cd frontend && deno task build",
+    "ui:install": "cd frontend && deno install",
+    "dev": "deno task dev:api",
+    "smoke": "deno run --allow-all scripts/smoke_test.ts",
+    "test:auth": "deno run --allow-all scripts/test_scopes.ts && deno run --allow-all scripts/test_auth_flow.ts && deno run --allow-all scripts/test_mcp_oauth.ts && deno run --allow-all scripts/test_audit_lifecycle.ts && deno run --allow-all scripts/test_package_spec.ts && deno run --allow-all scripts/test_sandbox_wrap.ts && deno run --allow-all scripts/test_db_sql_util.ts",
+    "check": "deno check src/main.ts"
+  },
+  "imports": {
+    "@modelcontextprotocol/client": "npm:@modelcontextprotocol/client@^2.0.0",
+    "@modelcontextprotocol/client/stdio": "npm:@modelcontextprotocol/client@^2.0.0/stdio",
+    "@modelcontextprotocol/server": "npm:@modelcontextprotocol/server@^2.0.0",
+    "@std/fs": "jsr:@std/fs@^1.0.24",
+    "@std/path": "jsr:@std/path@^1.1.6",
+    "hono": "npm:hono@^4.13.1",
+    "postgres": "npm:postgres@3.4.7",
+    "zod": "npm:zod@^4.4.3"
+  },
+  "compilerOptions": {
+    "strict": true,
+    "lib": ["deno.window", "deno.unstable"]
+  },
+  "nodeModulesDir": "auto"
+}

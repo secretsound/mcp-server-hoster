@@ -1,0 +1,55 @@
+import {
+  applyPackageVersion,
+  extractPackageSpec,
+  formatNpmSpec,
+  formatUvxSpec,
+  parseNpmSpec,
+  parseUvxSpec,
+} from "../src/package_spec.ts";
+
+function assert(cond: unknown, msg: string) {
+  if (!cond) throw new Error(msg);
+}
+
+assert(parseNpmSpec("@scope/pkg@1.2.3").name === "@scope/pkg", "npm scoped name");
+assert(parseNpmSpec("@scope/pkg@1.2.3").version === "1.2.3", "npm scoped ver");
+assert(parseNpmSpec("pkg@2").version === "2", "npm bare ver");
+assert(parseUvxSpec("mcp-foo==0.1.0").version === "0.1.0", "uvx ==");
+assert(formatNpmSpec("@a/b", "3") === "@a/b@3", "format npm");
+assert(formatUvxSpec("mcp-foo", "1") === "mcp-foo==1", "format uvx");
+
+const npx = extractPackageSpec({
+  command: "npx",
+  args: ["-y", "@modelcontextprotocol/server-everything@0.6.2"],
+});
+assert(npx.kind === "npx", "npx kind");
+assert(npx.version === "0.6.2", "npx version");
+
+const latest = applyPackageVersion(
+  {
+    command: "npx",
+    args: ["-y", "@modelcontextprotocol/server-everything@0.6.2", "extra"],
+  },
+  null,
+);
+assert(latest.args[1] === "@modelcontextprotocol/server-everything", "unpin");
+assert(latest.args[2] === "extra", "preserve extra");
+assert(latest.version === null, "latest version null");
+
+const pinned = applyPackageVersion(
+  { command: "uvx", args: ["mcp-portainer"] },
+  "0.3.1",
+);
+assert(pinned.args[0] === "mcp-portainer==0.3.1", "uvx pin");
+
+const git = applyPackageVersion(
+  {
+    command: "deno",
+    args: ["run", "-A", "main.ts"],
+    source: { git: "https://example.com/r.git", ref: "main" },
+  },
+  "v2",
+);
+assert(git.source?.ref === "v2", "git ref");
+
+console.log("test_package_spec: ok");

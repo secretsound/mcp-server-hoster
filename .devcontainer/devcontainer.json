@@ -1,0 +1,56 @@
+{
+  "name": "MCP Hoster",
+  "build": {
+    "context": "..",
+    "dockerfile": "../Dockerfile",
+    "target": "development"
+  },
+  "workspaceFolder": "/workspaces/mcp_hoster",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspaces/mcp_hoster,type=bind",
+  "forwardPorts": [8080, 5173],
+  "runArgs": [
+    "--publish=0.0.0.0:8080:8080",
+    "--publish=0.0.0.0:5173:5173",
+    "--security-opt=seccomp=unconfined"
+  ],
+  "portsAttributes": {
+    "8080": {
+      "label": "MCP Hoster",
+      "onAutoForward": "notify"
+    },
+    "5173": {
+      "label": "Admin UI (Vite)",
+      "onAutoForward": "notify"
+    }
+  },
+  "containerEnv": {
+    "HOST_BIND": "0.0.0.0",
+    "HOST_PORT": "8080",
+    "DATA_DIR": "/workspaces/mcp_hoster/data",
+    "DATABASE_URL": "sqlite:///workspaces/mcp_hoster/data/mcp-hoster.db",
+    "SEED_PATH": "/workspaces/mcp_hoster/seed.example.json",
+    "MIGRATIONS_DIR": "/workspaces/mcp_hoster/migrations",
+    "GATEWAY_PUBLIC_URL": "",
+    "AUTH_ALLOW_OPEN": "1"
+  },
+  "postCreateCommand": "deno install && deno cache src/main.ts && deno task ui:install && deno task ui:build",
+  "postStartCommand": "mkdir -p data/logs data/servers data/workspaces/fs",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "denoland.vscode-deno",
+        "Vue.volar",
+        "ms-azuretools.vscode-docker"
+      ],
+      "settings": {
+        "deno.enable": true,
+        "deno.lint": true,
+        "editor.defaultFormatter": "denoland.vscode-deno",
+        "[typescript]": {
+          "editor.defaultFormatter": "denoland.vscode-deno"
+        }
+      }
+    }
+  },
+  "remoteUser": "root"
+}

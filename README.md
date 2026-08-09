@@ -6,8 +6,10 @@ Self-hosted [Model Context Protocol](https://modelcontextprotocol.io/) gateway. 
 
 ```bash
 cp .env.example .env   # set BOOTSTRAP_ADMIN_EMAIL / BOOTSTRAP_ADMIN_PASSWORD
-docker compose up --build
+docker compose up -d
 ```
+
+Pulls `ghcr.io/secretsound/mcp_host_server:latest` by default. Local rebuild: `docker compose up --build`.
 
 - Admin UI: http://localhost:8080/ui
 - MCP gateway: http://localhost:8080/mcp

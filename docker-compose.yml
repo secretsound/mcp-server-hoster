@@ -1,9 +1,7 @@
 services:
   mcp-hoster:
-    # Default pulls the published GHCR image. Override in .env after first publish:
-    #   MCP_HOSTER_IMAGE=ghcr.io/<owner>/<repo>:latest
-    # Local rebuild: docker compose up --build
-    image: ${MCP_HOSTER_IMAGE:-ghcr.io/OWNER/mcp_hoster:latest}
+    # Default pulls GHCR. Override with MCP_HOSTER_IMAGE; rebuild with --build.
+    image: ${MCP_HOSTER_IMAGE:-ghcr.io/secretsound/mcp_host_server:latest}
     build:
       context: .
       target: production

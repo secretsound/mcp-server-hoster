@@ -1,10 +1,12 @@
 import {
   applyPackageVersion,
+  buildUvxArgs,
   extractPackageSpec,
   formatNpmSpec,
   formatUvxSpec,
   parseNpmSpec,
   parseUvxSpec,
+  splitUvxInvocation,
 } from "../src/package_spec.ts";
 
 function assert(cond: unknown, msg: string) {
@@ -41,6 +43,57 @@ const pinned = applyPackageVersion(
   "0.3.1",
 );
 assert(pinned.args[0] === "mcp-portainer==0.3.1", "uvx pin");
+
+const withOpts = splitUvxInvocation([
+  "--python",
+  "3.12",
+  "--with",
+  "mcp[cli]>=1.12.0,<2",
+  "mealie-mcp-server",
+  "--verbose",
+]);
+assert(withOpts.packageSpec === "mealie-mcp-server", "uvx package after opts");
+assert(
+  withOpts.options.join(" ") ===
+    "--python 3.12 --with mcp[cli]>=1.12.0,<2",
+  "uvx options",
+);
+assert(withOpts.toolArgs.join(" ") === "--verbose", "uvx tool args");
+
+const built = buildUvxArgs("mealie-mcp-server", [
+  "--python",
+  "3.12",
+  "--with",
+  "mcp[cli]>=1.12.0,<2",
+]);
+assert(
+  built.join(" ") ===
+    "--python 3.12 --with mcp[cli]>=1.12.0,<2 mealie-mcp-server",
+  "build uvx args",
+);
+
+const pinnedWith = applyPackageVersion(
+  {
+    command: "uvx",
+    args: [
+      "--python",
+      "3.12",
+      "--with",
+      "mcp[cli]>=1.12.0,<2",
+      "mealie-mcp-server",
+    ],
+  },
+  "0.1.0",
+);
+assert(
+  pinnedWith.args.join(" ") ===
+    "--python 3.12 --with mcp[cli]>=1.12.0,<2 mealie-mcp-server==0.1.0",
+  "uvx pin keeps options",
+);
+assert(extractPackageSpec({
+  command: "uvx",
+  args: pinnedWith.args,
+}).name === "mealie-mcp-server", "extract uvx name with options");
 
 const git = applyPackageVersion(
   {

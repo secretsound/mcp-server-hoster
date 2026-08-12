@@ -56,6 +56,7 @@
         "name": "Mealie",
         "launcher": "uvx",
         "package": "mealie-mcp-server",
+        "extraArgs": "--python 3.12 --with mcp[cli]>=1.12.0,<2",
         "env": [
           {
             "key": "MEALIE_BASE_URL",

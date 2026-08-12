@@ -8,10 +8,13 @@ import type {
 } from "../types";
 import { i18n } from "../i18n";
 import {
+  buildUvxArgs,
   formatNpmSpec,
   formatUvxSpec,
   parseNpmSpec,
   parseUvxSpec,
+  shellQuoteArg,
+  splitUvxInvocation,
 } from "./packageSpec";
 
 function t(key: string, named?: Record<string, unknown>): string {
@@ -65,23 +68,21 @@ export function detectLauncher(server: ServerWithRuntime): {
       command: "npx",
     };
   }
-  if (
-    server.command === "uvx" &&
-    server.args?.[0] &&
-    !String(server.args[0]).startsWith("-")
-  ) {
-    const parsed = parseUvxSpec(server.args[0]);
-    return {
-      launcher: "uvx",
-      package: server.packageName || parsed.name || server.args[0],
-      packageVersion: server.packageVersion ?? parsed.version ?? "",
-      extraArgs: server.args
-        .slice(1)
-        .map((a) => (String(a).includes(" ") ? JSON.stringify(a) : a))
-        .join(" "),
-      argsLines: "",
-      command: "uvx",
-    };
+  if (server.command === "uvx") {
+    const { options, packageSpec, toolArgs } = splitUvxInvocation(
+      server.args || [],
+    );
+    if (packageSpec && !packageSpec.includes("://")) {
+      const parsed = parseUvxSpec(packageSpec);
+      return {
+        launcher: "uvx",
+        package: server.packageName || parsed.name || packageSpec,
+        packageVersion: server.packageVersion ?? parsed.version ?? "",
+        extraArgs: [...options, ...toolArgs].map(shellQuoteArg).join(" "),
+        argsLines: "",
+        command: "uvx",
+      };
+    }
   }
   return {
     launcher: "custom",
@@ -147,7 +148,7 @@ function resolveCommandArgs(values: ServerFormValues): {
     const version = pin ?? parsed.version;
     return {
       command: "uvx",
-      args: [formatUvxSpec(name, version), ...extra],
+      args: buildUvxArgs(formatUvxSpec(name, version), extra),
       packageName: name.includes("://") ? null : name,
       packageVersion: version,
     };

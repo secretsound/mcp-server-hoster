@@ -15,9 +15,9 @@ export default {
   extraArgs: "Extra args",
   extraHintNpx: "(optional path or flags after the package)",
   extraHintUvx:
-    "(optional flags after the package — not --from; use Custom for that)",
+    "(uvx options like --python / --with before the package, or tool flags after)",
   extraPlaceholderNpx: "e.g. /data/workspaces/fs",
-  extraPlaceholderUvx: "optional tool flags",
+  extraPlaceholderUvx: "e.g. --python 3.12 --with 'mcp[cli]<2'",
   args: "Args",
   argsHint: "(one per line)",
   environment: "Environment",

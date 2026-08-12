@@ -31,7 +31,7 @@ import type {
   ServerWithRuntime,
   ToolInfo,
 } from "../types";
-import { versionLabel } from "../utils/packageSpec";
+import { splitUvxInvocation, versionLabel } from "../utils/packageSpec";
 import {
   buildUpdatePayload,
   copyText,
@@ -83,13 +83,9 @@ const canUpgrade = computed(() => {
   const cmd = server.value.command;
   const args = server.value.args || [];
   if (cmd === "npx" && args[0] === "-y" && args[1]) return true;
-  if (
-    cmd === "uvx" &&
-    args[0] &&
-    !String(args[0]).startsWith("-") &&
-    !String(args[0]).includes("://")
-  ) {
-    return true;
+  if (cmd === "uvx") {
+    const { packageSpec } = splitUvxInvocation(args);
+    if (packageSpec && !packageSpec.includes("://")) return true;
   }
   return false;
 });

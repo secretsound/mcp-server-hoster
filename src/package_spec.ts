@@ -57,6 +57,73 @@ export function formatUvxSpec(name: string, version: string | null | undefined):
   return v ? `${n}==${v}` : n;
 }
 
+/** uvx flags that consume a following value (not `--flag=value`). */
+const UVX_VALUE_OPTS = new Set([
+  "--from",
+  "--with",
+  "-w",
+  "--with-editable",
+  "--with-requirements",
+  "--constraints",
+  "-c",
+  "--build-constraints",
+  "-b",
+  "--overrides",
+  "--env-file",
+  "--python",
+  "-p",
+  "--python-platform",
+  "--index",
+  "--default-index",
+  "--index-url",
+  "-i",
+  "--extra-index-url",
+  "--find-links",
+  "-f",
+  "--directory",
+  "--project",
+  "--config-file",
+]);
+
+/** Split `uvx [options] <package> [tool args…]`. */
+export function splitUvxInvocation(args: string[]): {
+  options: string[];
+  packageSpec: string | null;
+  toolArgs: string[];
+} {
+  const options: string[] = [];
+  let i = 0;
+  while (i < args.length) {
+    const a = String(args[i] ?? "");
+    if (!a.startsWith("-")) break;
+    options.push(a);
+    i++;
+    if (a.includes("=")) continue;
+    if (
+      UVX_VALUE_OPTS.has(a) &&
+      i < args.length &&
+      !String(args[i]).startsWith("-")
+    ) {
+      options.push(String(args[i]));
+      i++;
+    }
+  }
+  if (i >= args.length) {
+    return { options, packageSpec: null, toolArgs: [] };
+  }
+  return {
+    options,
+    packageSpec: String(args[i]),
+    toolArgs: args.slice(i + 1).map(String),
+  };
+}
+
+/** Build uvx args from a package pin plus form extras (options and/or tool flags). */
+export function buildUvxArgs(packageSpec: string, extra: string[]): string[] {
+  const { options, toolArgs } = splitUvxInvocation(extra);
+  return [...options, packageSpec, ...toolArgs];
+}
+
 /** Inspect a server command/args (+ optional git source) for version info. */
 export function extractPackageSpec(input: {
   command: string;
@@ -75,14 +142,17 @@ export function extractPackageSpec(input: {
     };
   }
 
-  if (command === "uvx" && args[0] && !String(args[0]).startsWith("-")) {
-    const { name, version } = parseUvxSpec(args[0]);
-    return {
-      kind: "uvx",
-      name: name || null,
-      version,
-      label: version ? `${name}==${version}` : name || args[0],
-    };
+  if (command === "uvx") {
+    const { packageSpec } = splitUvxInvocation(args);
+    if (packageSpec && !packageSpec.includes("://")) {
+      const { name, version } = parseUvxSpec(packageSpec);
+      return {
+        kind: "uvx",
+        name: name || null,
+        version,
+        label: version ? `${name}==${version}` : name || packageSpec,
+      };
+    }
   }
 
   if (source?.git) {
@@ -135,9 +205,10 @@ export function applyPackageVersion(
 
   if (current.kind === "uvx" && current.name && !current.name.includes("://")) {
     const pinned = formatUvxSpec(current.name, v);
+    const { options, toolArgs } = splitUvxInvocation(input.args);
     return {
       command: "uvx",
-      args: [pinned, ...input.args.slice(1)],
+      args: [...options, pinned, ...toolArgs],
       source: input.source ?? null,
       kind: "uvx",
       name: current.name,

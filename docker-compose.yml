@@ -23,10 +23,14 @@ services:
       AUTH_DISABLED: ${AUTH_DISABLED:-0}
     volumes:
       - ${MCP_HOSTER_DATA:-./data}:/data
-    # Nested user namespaces (bubblewrap) need a looser seccomp profile on many hosts.
-    # Landlock still works without this; remove if your runtime forbids it.
+    # Sandbox notes:
+    # - bubblewrap is installed in the image, but nested user namespaces are often
+    #   blocked by the host → probe falls back.
+    # - Landlock needs Linux 5.13+ and a seccomp profile that allows its syscalls.
+    #   Default Docker seccomp may block Landlock; unconfined fixes that.
     security_opt:
       - seccomp:unconfined
+      - apparmor:unconfined
     restart: unless-stopped
     healthcheck:
       test:

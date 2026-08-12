@@ -97,6 +97,7 @@ const host = reactive({
   port: 8080,
   dataDir: "",
   sandboxMode: "auto" as "auto" | "bwrap" | "landlock" | "none",
+  sandboxNetwork: "share" as "share" | "none",
   authDisabled: false,
   authAllowOpen: false,
 });
@@ -104,6 +105,7 @@ const host = reactive({
 const sandboxActive = ref<{
   requested: string;
   active: string;
+  network: string;
   detail: string | null;
 } | null>(null);
 
@@ -112,6 +114,11 @@ const sandboxModeOptions = computed(() => [
   { label: t("settings.sandboxBwrap"), value: "bwrap" },
   { label: t("settings.sandboxLandlock"), value: "landlock" },
   { label: t("settings.sandboxNone"), value: "none" },
+]);
+
+const sandboxNetworkOptions = computed(() => [
+  { label: t("settings.sandboxNetworkShare"), value: "share" },
+  { label: t("settings.sandboxNetworkNone"), value: "none" },
 ]);
 
 const oauth = reactive({
@@ -299,7 +306,12 @@ onMounted(async () => {
       api<HealthResponse>("/health"),
       api<{
         settings: Record<string, string>;
-        sandbox?: { requested: string; active: string; detail: string | null };
+        sandbox?: {
+          requested: string;
+          active: string;
+          network?: string;
+          detail: string | null;
+        };
         pendingBootstrap?: DatabaseInfo["pendingBootstrap"];
       }>("/api/settings"),
       api<{ required: boolean }>("/api/auth/status"),
@@ -361,6 +373,10 @@ function applySettingsMap(s: Record<string, string>) {
     mode === "bwrap" || mode === "landlock" || mode === "none" || mode === "auto"
       ? mode
       : "auto";
+  host.sandboxNetwork =
+    (s["host.sandbox_network"] || "share").toLowerCase() === "none"
+      ? "none"
+      : "share";
   if (s["host.database_url"]?.startsWith("postgres")) {
     const parsed = parsePostgresUrl(s["host.database_url"]);
     if (parsed) Object.assign(migrate, parsed);
@@ -432,7 +448,12 @@ async function putSettings(body: Record<string, string>, which: "general" | "hos
     const res = await api<{
       settings: Record<string, string>;
       restartRequired?: boolean;
-      sandbox?: { requested: string; active: string; detail: string | null };
+      sandbox?: {
+        requested: string;
+        active: string;
+        network?: string;
+        detail: string | null;
+      };
       pendingBootstrap?: DatabaseInfo["pendingBootstrap"];
     }>("/api/settings", {
       method: "PUT",
@@ -480,6 +501,7 @@ async function saveHost() {
     "host.port": String(host.port),
     "host.data_dir": host.dataDir,
     "host.sandbox_mode": host.sandboxMode,
+    "host.sandbox_network": host.sandboxNetwork,
     "host.auth_disabled": host.authDisabled ? "true" : "false",
     "host.auth_allow_open": host.authAllowOpen ? "true" : "false",
     "host.public_url": siteUrl,
@@ -942,9 +964,27 @@ async function requestRestart() {
                     >
                       {{ t("settings.sandboxActive") }}
                       <code>{{ sandboxActive?.active || "—" }}</code>
+                      <span v-if="sandboxActive?.network">
+                        / <code>{{ sandboxActive.network }}</code>
+                      </span>
                       <span v-if="sandboxActive?.detail">
                         — {{ sandboxActive.detail }}
                       </span>
+                    </NText>
+                  </div>
+                </NFormItem>
+                <NFormItem :label="t('settings.sandboxNetwork')">
+                  <div style="width: 100%">
+                    <NSelect
+                      v-model:value="host.sandboxNetwork"
+                      :options="sandboxNetworkOptions"
+                      :disabled="!auth.can('settings:write')"
+                    />
+                    <NText
+                      depth="3"
+                      style="display: block; margin-top: 0.4rem; font-size: 0.85rem"
+                    >
+                      {{ t("settings.sandboxNetworkHint") }}
                     </NText>
                   </div>
                 </NFormItem>

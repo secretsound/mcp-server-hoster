@@ -19,7 +19,9 @@ import { createMcpFetch } from "./gateway/mcp_server.ts";
 import { buildHealthChecks } from "./health.ts";
 import {
   parseSandboxMode,
+  parseSandboxNetwork,
   SANDBOX_MODE_SETTING_KEY,
+  SANDBOX_NETWORK_SETTING_KEY,
   SandboxController,
 } from "./sandbox_wrap.ts";
 import { seedSettingsFromBootstrap } from "./settings/registry.ts";
@@ -91,13 +93,17 @@ await seedIfEmpty(servers, config.seedPath, library, config.librarySeedPath);
 if (!await settings.get(SANDBOX_MODE_SETTING_KEY)) {
   await settings.set(SANDBOX_MODE_SETTING_KEY, "auto");
 }
+if (!await settings.get(SANDBOX_NETWORK_SETTING_KEY)) {
+  await settings.set(SANDBOX_NETWORK_SETTING_KEY, "share");
+}
 
 const sandbox = new SandboxController();
 const sandboxRuntime = await sandbox.apply(
   parseSandboxMode(await settings.get(SANDBOX_MODE_SETTING_KEY)),
+  parseSandboxNetwork(await settings.get(SANDBOX_NETWORK_SETTING_KEY)),
 );
 console.error(
-  `[sandbox] mode=${sandboxRuntime.mode} (requested=${sandbox.getRequested()})${
+  `[sandbox] mode=${sandboxRuntime.mode} network=${sandboxRuntime.network} (requested=${sandbox.getRequested()})${
     sandboxRuntime.detail ? ` — ${sandboxRuntime.detail}` : ""
   }`,
 );

@@ -3,7 +3,9 @@ import { writeHostBootstrap } from "../config.ts";
 import type { SettingsRepository } from "../db/repos/settings.ts";
 import {
   parseSandboxMode,
+  parseSandboxNetwork,
   SANDBOX_MODE_SETTING_KEY,
+  SANDBOX_NETWORK_SETTING_KEY,
 } from "../sandbox_wrap.ts";
 
 export type SettingType = "string" | "number" | "boolean";
@@ -40,6 +42,14 @@ export const SETTING_DEFS: SettingDef[] = [
     default: "auto",
     restartRequired: false,
     description: "Process sandbox backend",
+  },
+  {
+    key: SANDBOX_NETWORK_SETTING_KEY,
+    type: "string",
+    default: "share",
+    restartRequired: false,
+    description:
+      "Sandbox network: share (default egress) or none (bwrap --unshare-net)",
   },
   {
     key: "host.gateway_public_url",
@@ -184,6 +194,14 @@ export function validateSettingValue(key: string, value: string): string {
     return mode;
   }
 
+  if (key === SANDBOX_NETWORK_SETTING_KEY) {
+    const network = parseSandboxNetwork(value);
+    if (value.trim().toLowerCase() !== network) {
+      throw new Error("host.sandbox_network must be share or none");
+    }
+    return network;
+  }
+
   if (def.type === "boolean") {
     const v = value.trim().toLowerCase();
     if (!["true", "false", "1", "0", "yes", "no"].includes(v)) {
@@ -245,6 +263,7 @@ export async function seedSettingsFromBootstrap(
     "host.display_name": "MCP Hoster",
     "host.notes": "",
     [SANDBOX_MODE_SETTING_KEY]: "auto",
+    [SANDBOX_NETWORK_SETTING_KEY]: "share",
     "host.gateway_public_url": config.gatewayPublicUrl ?? "",
     "host.public_url": config.publicUrl ?? "",
     "host.auth_disabled": boolStr(config.authDisabled),
@@ -267,7 +286,7 @@ export type ApplySettingsResult = {
   settings: Record<string, string>;
   restartRequired: boolean;
   pendingBootstrap: HostBootstrapFile;
-  sandboxModeChanged: string | null;
+  sandboxConfigChanged: boolean;
 };
 
 function bootstrapValueFromSetting(
@@ -290,7 +309,7 @@ export async function applySettingsUpdate(
 ): Promise<ApplySettingsResult> {
   const bootstrapPatch: HostBootstrapFile = {};
   let restartRequired = false;
-  let sandboxModeChanged: string | null = null;
+  let sandboxConfigChanged = false;
 
   for (const [key, raw] of Object.entries(body)) {
     if (typeof raw !== "string" && typeof raw !== "number" && typeof raw !== "boolean") {
@@ -304,8 +323,11 @@ export async function applySettingsUpdate(
     const value = validateSettingValue(key, asString);
     await settings.set(key, value);
 
-    if (key === SANDBOX_MODE_SETTING_KEY) {
-      sandboxModeChanged = value;
+    if (
+      key === SANDBOX_MODE_SETTING_KEY ||
+      key === SANDBOX_NETWORK_SETTING_KEY
+    ) {
+      sandboxConfigChanged = true;
     }
 
     if (def.restartRequired) {
@@ -335,7 +357,7 @@ export async function applySettingsUpdate(
     settings: await settings.getAll(),
     restartRequired,
     pendingBootstrap,
-    sandboxModeChanged,
+    sandboxConfigChanged,
   };
 }
 

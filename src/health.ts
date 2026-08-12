@@ -95,7 +95,7 @@ export async function buildHealthChecks(input: {
       id: "sandbox",
       ok: true,
       severity: "info",
-      message: `MCP children sandboxed via ${input.sandbox.mode} (setting: ${input.sandboxRequested})${
+      message: `MCP children sandboxed via ${input.sandbox.mode}/${input.sandbox.network} (setting: ${input.sandboxRequested})${
         input.sandbox.detail ? ` — ${input.sandbox.detail}` : ""
       }`,
     });

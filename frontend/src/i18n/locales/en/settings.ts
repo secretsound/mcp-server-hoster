@@ -51,10 +51,15 @@ export default {
   processAuth: "Process & auth",
   processSandbox: "Process sandbox",
   sandboxActive: "Active:",
-  sandboxAuto: "Auto (bwrap → landlock → none)",
+  sandboxAuto: "Auto (landlock → bwrap → none)",
   sandboxBwrap: "Bubblewrap",
   sandboxLandlock: "Landlock",
   sandboxNone: "None (soft isolation only)",
+  sandboxNetwork: "Sandbox network",
+  sandboxNetworkShare: "Share host network (needed for most MCP APIs)",
+  sandboxNetworkNone: "Isolate network (bwrap only — no egress)",
+  sandboxNetworkHint:
+    "Isolate only works with bubblewrap. Most MCP servers need shared network to reach their backends.",
   authDisableWarning:
     "Disabling auth exposes the admin API and MCP gateway without credentials. Prefer bootstrap admin users in production.",
   disableAuth: "Disable authentication",

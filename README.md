@@ -56,6 +56,8 @@ Most options live in **Settings** after first boot. Bootstrap via env (see [`.en
 | `GATEWAY_PUBLIC_URL` | Public `/mcp` URL for clients |
 | `MCP_BACKEND_CONNECT_TIMEOUT_MS` | Max wait for MCP child handshake on start (default `300000` = 5m; first `uvx`/`npx` downloads can be slow) |
 
+Each MCP server runs in its own data dir under `DATA_DIR/servers/<id>` with per-server package caches. With Landlock/bwrap active, children cannot write outside that tree (and cannot see each other’s files). Optional `host.sandbox_network=none` (bwrap only) also removes network egress.
+
 ## License
 
 [PolyForm Noncommercial 1.0.0](LICENSE) — free for personal, educational, research, and other noncommercial use. Commercial use (including selling the software or using it to operate a business) requires a separate license from the copyright holder.

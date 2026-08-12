@@ -53,10 +53,15 @@ export default {
   processAuth: "Proceso y autenticación",
   processSandbox: "Sandbox de procesos",
   sandboxActive: "Activo:",
-  sandboxAuto: "Auto (bwrap → landlock → none)",
+  sandboxAuto: "Auto (landlock → bwrap → none)",
   sandboxBwrap: "Bubblewrap",
   sandboxLandlock: "Landlock",
   sandboxNone: "Ninguno (solo aislamiento suave)",
+  sandboxNetwork: "Red del sandbox",
+  sandboxNetworkShare: "Compartir red del host (necesario para la mayoría de APIs MCP)",
+  sandboxNetworkNone: "Aislar red (solo bwrap — sin salida)",
+  sandboxNetworkHint:
+    "El aislamiento de red solo funciona con bubblewrap. La mayoría de servidores MCP necesitan red compartida para llegar a sus backends.",
   authDisableWarning:
     "Desactivar la autenticación expone la API de administración y la puerta de enlace MCP sin credenciales. En producción, preferible arrancar con usuarios administradores.",
   disableAuth: "Desactivar autenticación",

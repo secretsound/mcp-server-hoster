@@ -29,7 +29,9 @@ import { allowsTool, type ScopeGrant } from "../auth/scopes.ts";
 import { onLogAppend } from "../sandbox.ts";
 import {
   parseSandboxMode,
+  parseSandboxNetwork,
   SANDBOX_MODE_SETTING_KEY,
+  SANDBOX_NETWORK_SETTING_KEY,
   type SandboxController,
 } from "../sandbox_wrap.ts";
 import {
@@ -499,6 +501,7 @@ export function createAdminApi(
       sandbox: {
         requested: sandbox.getRequested(),
         active: sandbox.getRuntime().mode,
+        network: sandbox.getRuntime().network,
         detail: sandbox.getRuntime().detail ?? null,
       },
     });
@@ -527,12 +530,16 @@ export function createAdminApi(
         await auth.updateOAuthSettings({ publicUrl: v });
       }
 
-      if (result.sandboxModeChanged) {
-        const runtime = await sandbox.apply(
-          parseSandboxMode(result.sandboxModeChanged),
+      if (result.sandboxConfigChanged) {
+        const requested = parseSandboxMode(
+          result.settings[SANDBOX_MODE_SETTING_KEY],
         );
+        const network = parseSandboxNetwork(
+          result.settings[SANDBOX_NETWORK_SETTING_KEY],
+        );
+        const runtime = await sandbox.apply(requested, network);
         console.error(
-          `[sandbox] updated mode=${runtime.mode} (requested=${sandbox.getRequested()})${
+          `[sandbox] updated mode=${runtime.mode} network=${runtime.network} (requested=${sandbox.getRequested()})${
             runtime.detail ? ` — ${runtime.detail}` : ""
           }`,
         );
@@ -545,9 +552,10 @@ export function createAdminApi(
           resourceType: "settings",
           resourceId: SANDBOX_MODE_SETTING_KEY,
           summary:
-            `Sandbox mode set to ${result.sandboxModeChanged} (active: ${runtime.mode})`,
+            `Sandbox mode set to ${requested}/${network} (active: ${runtime.mode})`,
           metadata: {
-            requested: result.sandboxModeChanged,
+            requested,
+            network,
             active: runtime.mode,
             detail: runtime.detail ?? null,
           },
@@ -573,6 +581,7 @@ export function createAdminApi(
         sandbox: {
           requested: sandbox.getRequested(),
           active: sandbox.getRuntime().mode,
+          network: sandbox.getRuntime().network,
           detail: sandbox.getRuntime().detail ?? null,
         },
       });

@@ -106,6 +106,8 @@ export async function connectBackend(
 
     await client.connect(transport, { timeout: timeoutMs });
 
+    const caps = client.getServerCapabilities();
+
     const listed = await client.listTools(undefined, { timeout: timeoutMs });
     const tools: DiscoveredTool[] = (listed.tools ?? []).map((t) => ({
       name: t.name,
@@ -117,36 +119,40 @@ export async function connectBackend(
     }));
 
     let resources: DiscoveredResource[] = [];
-    try {
-      const listedResources = await client.listResources(undefined, {
-        timeout: timeoutMs,
-      });
-      resources = (listedResources.resources ?? []).map((r) => ({
-        uri: r.uri,
-        name: r.name,
-        description: r.description,
-        mimeType: r.mimeType,
-      }));
-    } catch {
-      resources = [];
+    if (caps?.resources) {
+      try {
+        const listedResources = await client.listResources(undefined, {
+          timeout: timeoutMs,
+        });
+        resources = (listedResources.resources ?? []).map((r) => ({
+          uri: r.uri,
+          name: r.name,
+          description: r.description,
+          mimeType: r.mimeType,
+        }));
+      } catch {
+        resources = [];
+      }
     }
 
     let prompts: DiscoveredPrompt[] = [];
-    try {
-      const listedPrompts = await client.listPrompts(undefined, {
-        timeout: timeoutMs,
-      });
-      prompts = (listedPrompts.prompts ?? []).map((p) => ({
-        name: p.name,
-        description: p.description,
-        arguments: p.arguments?.map((a) => ({
-          name: a.name,
-          description: a.description,
-          required: a.required,
-        })),
-      }));
-    } catch {
-      prompts = [];
+    if (caps?.prompts) {
+      try {
+        const listedPrompts = await client.listPrompts(undefined, {
+          timeout: timeoutMs,
+        });
+        prompts = (listedPrompts.prompts ?? []).map((p) => ({
+          name: p.name,
+          description: p.description,
+          arguments: p.arguments?.map((a) => ({
+            name: a.name,
+            description: a.description,
+            required: a.required,
+          })),
+        }));
+      } catch {
+        prompts = [];
+      }
     }
 
     await appendLog(

@@ -185,8 +185,6 @@ console.error(
   }`,
 );
 
-await pm.startEnabled();
-
 const server = Deno.serve({ hostname: config.bind, port: config.port }, app.fetch);
 console.error(`[mcp-hoster] listening on http://${config.bind}:${config.port} (all interfaces)`);
 console.error(`[mcp-hoster] admin UI: http://${config.bind}:${config.port}/ui`);
@@ -194,6 +192,13 @@ console.error(`[mcp-hoster] MCP endpoint: http://${config.bind}:${config.port}/m
 if (config.gatewayPublicUrl) {
   console.error(`[mcp-hoster] public gateway URL: ${config.gatewayPublicUrl}`);
 }
+
+// Don't block the admin UI / health endpoint on slow uvx/npx cold starts.
+void pm.startEnabled().then(() => {
+  console.error("[mcp-hoster] enabled MCP servers finished starting");
+}).catch((err) => {
+  console.error("[mcp-hoster] enabled MCP server start sweep failed:", err);
+});
 
 async function shutdown() {
   console.error("[mcp-hoster] shutting down...");

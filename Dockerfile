@@ -7,6 +7,8 @@ ARG NODE_VERSION=22
 # Base: Deno + Node (npx) + uv (uvx) + git
 # -----------------------------------------------------------------------------
 FROM denoland/deno:bin-${DENO_VERSION} AS deno-bin
+# Native-arch Deno for UI build (must match $BUILDPLATFORM, not the target).
+FROM --platform=$BUILDPLATFORM denoland/deno:bin-${DENO_VERSION} AS deno-bin-build
 
 FROM node:${NODE_VERSION}-bookworm-slim AS base
 
@@ -64,8 +66,12 @@ CMD ["deno", "task", "dev"]
 
 # -----------------------------------------------------------------------------
 # Frontend build (Vue + Vite + Naive UI)
+# Arch-independent assets — always build on the native builder platform so
+# Vite/rolldown/lightningcss are not run under QEMU (arm64 SIGILL).
 # -----------------------------------------------------------------------------
-FROM base AS ui-build
+FROM --platform=$BUILDPLATFORM node:${NODE_VERSION}-bookworm-slim AS ui-build
+
+COPY --from=deno-bin-build /deno /usr/local/bin/deno
 
 WORKDIR /app/frontend
 COPY frontend/package.json frontend/deno.lock* frontend/package-lock.json* ./

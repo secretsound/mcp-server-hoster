@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onUnmounted, reactive, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import {
   NAlert,
@@ -38,6 +39,7 @@ import StatusTag from "./StatusTag.vue";
 
 type Step = 1 | 2 | 3;
 
+const { t } = useI18n();
 const ui = useUiStore();
 const servers = useServersStore();
 const library = useLibraryStore();
@@ -231,11 +233,11 @@ function next() {
   formError.value = "";
   if (step.value === 1) {
     if (!form.id.trim()) {
-      formError.value = "Server ID is required.";
+      formError.value = t("installWizard.idRequired");
       return;
     }
     if (!/^[A-Za-z0-9_-]+$/.test(form.id.trim())) {
-      formError.value = "ID may only contain letters, numbers, _ and -.";
+      formError.value = t("installWizard.idInvalid");
       return;
     }
     step.value = 2;
@@ -257,7 +259,7 @@ async function install() {
     createdId.value = server.id;
     createdServer.value = server;
     step.value = 3;
-    message.success(`Installed ${server.id}`);
+    message.success(t("installWizard.installed", { id: server.id }));
     if (form.startNow) {
       void pollRuntime(server.id, Date.now());
     }
@@ -269,8 +271,8 @@ async function install() {
 }
 
 async function copyUrl(url: string) {
-  if (await copyText(url)) message.success("Copied");
-  else message.error("Could not copy");
+  if (await copyText(url)) message.success(t("common.copied"));
+  else message.error(t("installWizard.copyFailed"));
 }
 
 function openServer() {
@@ -300,19 +302,24 @@ const doneAlertType = computed(() => {
 const doneAlertText = computed(() => {
   if (!createdId.value) return "";
   if (!form.startNow) {
-    return `${createdId.value} is installed (not started yet).`;
+    return t("installWizard.installedNotStarted", { id: createdId.value });
   }
   if (runtimeStatus.value === "running") {
-    return `${createdId.value} is running` +
-      (toolCount.value ? ` with ${toolCount.value} tool${toolCount.value === 1 ? "" : "s"}.` : ".");
+    if (toolCount.value) {
+      return t("installWizard.runningWithTools", {
+        id: createdId.value,
+        count: toolCount.value,
+      }, toolCount.value);
+    }
+    return t("installWizard.running", { id: createdId.value });
   }
   if (runtimeStatus.value === "error") {
-    return `${createdId.value} was installed but failed to start.`;
+    return t("installWizard.failedToStart", { id: createdId.value });
   }
   if (statusTimedOut.value) {
-    return `${createdId.value} is still starting — check logs if it doesn’t come up.`;
+    return t("installWizard.stillStarting", { id: createdId.value });
   }
-  return `${createdId.value} is installed and starting…`;
+  return t("installWizard.installedStarting", { id: createdId.value });
 });
 </script>
 
@@ -328,8 +335,8 @@ const doneAlertText = computed(() => {
     <template #header>
       <div class="wiz-head">
         <div>
-          <div class="wiz-kicker">Install from Library</div>
-          <div class="wiz-title">{{ item?.name || "Server" }}</div>
+          <div class="wiz-kicker">{{ t("installWizard.kicker") }}</div>
+          <div class="wiz-title">{{ item?.name || t("installWizard.serverFallback") }}</div>
         </div>
         <NSpace :size="6">
           <NTag
@@ -338,7 +345,7 @@ const doneAlertText = computed(() => {
             type="warning"
             :bordered="false"
           >
-            self-hosted
+            {{ t("installWizard.selfHosted") }}
           </NTag>
           <NTag
             v-if="item && isOfficialLibraryItem(item.tags)"
@@ -346,7 +353,7 @@ const doneAlertText = computed(() => {
             type="success"
             :bordered="false"
           >
-            official
+            {{ t("installWizard.official") }}
           </NTag>
           <NTag v-if="categoryLabel" size="small" :bordered="false">
             {{ categoryLabel }}
@@ -356,48 +363,48 @@ const doneAlertText = computed(() => {
     </template>
 
     <NSteps :current="step" size="small" style="margin-bottom: 1.25rem">
-      <NStep title="Review" />
-      <NStep title="Configure" />
-      <NStep title="Done" />
+      <NStep :title="t('installWizard.stepReview')" />
+      <NStep :title="t('installWizard.stepConfigure')" />
+      <NStep :title="t('installWizard.stepDone')" />
     </NSteps>
 
     <!-- Step 1: Review -->
     <div v-if="step === 1 && item" class="panel">
       <p class="blurb">{{ item.blurb }}</p>
       <p v-if="docsUrl" class="docs">
-        Docs / source:
+        {{ t("installWizard.docsSource") }}
         <a :href="docsUrl" target="_blank" rel="noopener">{{ item.source }}</a>
       </p>
       <div class="meta">
         <div>
-          <NText depth="3">Source</NText>
+          <NText depth="3">{{ t("installWizard.source") }}</NText>
           <div class="mono">{{ item.source }}</div>
         </div>
         <div>
-          <NText depth="3">Launch command</NText>
+          <NText depth="3">{{ t("installWizard.launchCommand") }}</NText>
           <div class="mono">{{ commandPreview }}</div>
         </div>
       </div>
       <NSpace :size="6" style="margin: 0.85rem 0 1rem">
         <NTag
-          v-for="t in displayLibraryTags(item.tags)"
-          :key="t"
+          v-for="tag in displayLibraryTags(item.tags)"
+          :key="tag"
           size="tiny"
           :bordered="false"
         >
-          {{ t }}
+          {{ tag }}
         </NTag>
       </NSpace>
 
       <div class="grid-2">
-        <NFormItem label="Server ID" required>
+        <NFormItem :label="t('installWizard.serverId')" required>
           <NInput
             v-model:value="form.id"
             placeholder="mealie"
             :allow-input="(v: string) => !v || /^[A-Za-z0-9_-]*$/.test(v)"
           />
         </NFormItem>
-        <NFormItem label="Display name">
+        <NFormItem :label="t('installWizard.displayName')">
           <NInput v-model:value="form.name" placeholder="Mealie" />
         </NFormItem>
       </div>
@@ -408,12 +415,9 @@ const doneAlertText = computed(() => {
         :bordered="false"
         style="margin-bottom: 0.75rem"
       >
-        Next you’ll set
-        <strong>{{ requiredEnvKeys.join(", ") }}</strong>
-        so this server can start cleanly.
+        {{ t("installWizard.nextRequiredEnv", { keys: requiredEnvKeys.join(", ") }) }}
         <template v-if="optionalEnvKeys.length">
-          Optional:
-          {{ optionalEnvKeys.join(", ") }}.
+          {{ t("installWizard.optionalEnv", { keys: optionalEnvKeys.join(", ") }) }}
         </template>
       </NAlert>
       <NAlert
@@ -422,10 +426,15 @@ const doneAlertText = computed(() => {
         :bordered="false"
         style="margin-bottom: 0.75rem"
       >
-        Optional environment variables are available on the next step
-        <template v-if="optionalEnvKeys.length">
-          ({{ optionalEnvKeys.join(", ") }})
-        </template>.
+        {{
+          t("installWizard.optionalEnvNext", {
+            keys: optionalEnvKeys.length
+              ? t("installWizard.optionalEnvKeys", {
+                  keys: optionalEnvKeys.join(", "),
+                })
+              : "",
+          })
+        }}
       </NAlert>
     </div>
 
@@ -437,34 +446,33 @@ const doneAlertText = computed(() => {
         :bordered="false"
         style="margin-bottom: 0.85rem"
       >
-        Fill in the highlighted env vars before starting. Placeholder values
-        will be rejected.
+        {{ t("installWizard.fillRequiredEnv") }}
       </NAlert>
 
-      <NFormItem v-if="hasEnv" label="Environment">
+      <NFormItem v-if="hasEnv" :label="t('installWizard.environment')">
         <EnvKeyValueEditor
           v-model="form.env"
           :highlight-keys="requiredEnvKeys"
         />
       </NFormItem>
       <NText v-else depth="3" style="display: block; margin-bottom: 0.75rem">
-        This server doesn’t need environment variables.
+        {{ t("installWizard.noEnvNeeded") }}
       </NText>
 
       <NCheckbox v-model:checked="form.startNow" style="margin: 0.35rem 0 0.85rem">
-        Start immediately after install
+        {{ t("installWizard.startImmediately") }}
       </NCheckbox>
 
       <NCollapse>
-        <NCollapseItem title="Advanced (git checkout)" name="git">
+        <NCollapseItem :title="t('installWizard.advancedGit')" name="git">
           <div class="grid-2">
-            <NFormItem label="Git URL">
+            <NFormItem :label="t('installWizard.gitUrl')">
               <NInput
                 v-model:value="form.git"
                 placeholder="https://github.com/org/mcp-server.git"
               />
             </NFormItem>
-            <NFormItem label="Git ref">
+            <NFormItem :label="t('installWizard.gitRef')">
               <NInput v-model:value="form.ref" placeholder="main" />
             </NFormItem>
           </div>
@@ -472,7 +480,7 @@ const doneAlertText = computed(() => {
       </NCollapse>
 
       <div class="cmd-preview">
-        <NText depth="3">Will run</NText>
+        <NText depth="3">{{ t("installWizard.willRun") }}</NText>
         <code>{{ commandPreview }}</code>
       </div>
     </div>
@@ -496,14 +504,14 @@ const doneAlertText = computed(() => {
       <div v-if="form.startNow" class="status-panel">
         <NSpin :show="statusPolling" size="small">
           <div class="status-row">
-            <NText depth="3">Runtime</NText>
+            <NText depth="3">{{ t("installWizard.runtime") }}</NText>
             <div class="status-vals">
               <StatusTag :status="runtimeStatus" :error="lastError" />
               <NText v-if="toolCount" depth="3">
-                {{ toolCount }} tool{{ toolCount === 1 ? "" : "s" }} discovered
+                {{ t("installWizard.toolsDiscovered", { count: toolCount }, toolCount) }}
               </NText>
               <NText v-else-if="runtimeStatus === 'running'" depth="3">
-                No tools reported yet
+                {{ t("installWizard.noToolsYet") }}
               </NText>
             </div>
           </div>
@@ -514,22 +522,22 @@ const doneAlertText = computed(() => {
           style="margin-top: 0.65rem"
           @click="openServer"
         >
-          Open server logs
+          {{ t("installWizard.openServerLogs") }}
         </NButton>
       </div>
 
       <div class="url-block">
-        <NText depth="3">Dedicated MCP endpoint</NText>
+        <NText depth="3">{{ t("installWizard.dedicatedEndpoint") }}</NText>
         <div class="url-row">
           <code>{{ mcpUrl }}</code>
-          <NButton size="tiny" @click="copyUrl(mcpUrl)">Copy</NButton>
+          <NButton size="tiny" @click="copyUrl(mcpUrl)">{{ t("common.copy") }}</NButton>
         </div>
       </div>
       <div class="url-block">
-        <NText depth="3">Unified gateway (namespaced as {{ createdId }}__*)</NText>
+        <NText depth="3">{{ t("installWizard.unifiedGateway", { ns: `${createdId}__*` }) }}</NText>
         <div class="url-row">
           <code>{{ unifiedUrl }}</code>
-          <NButton size="tiny" @click="copyUrl(unifiedUrl)">Copy</NButton>
+          <NButton size="tiny" @click="copyUrl(unifiedUrl)">{{ t("common.copy") }}</NButton>
         </div>
       </div>
     </div>
@@ -540,22 +548,22 @@ const doneAlertText = computed(() => {
 
     <template #footer>
       <NSpace v-if="step === 1" justify="end">
-        <NButton :disabled="submitting" @click="close">Cancel</NButton>
-        <NButton type="primary" @click="next">Continue</NButton>
+        <NButton :disabled="submitting" @click="close">{{ t("common.cancel") }}</NButton>
+        <NButton type="primary" @click="next">{{ t("installWizard.continue") }}</NButton>
       </NSpace>
       <NSpace v-else-if="step === 2" justify="space-between">
-        <NButton :disabled="submitting" @click="back">Back</NButton>
+        <NButton :disabled="submitting" @click="back">{{ t("common.back") }}</NButton>
         <NSpace>
-          <NButton :disabled="submitting" @click="close">Cancel</NButton>
+          <NButton :disabled="submitting" @click="close">{{ t("common.cancel") }}</NButton>
           <NButton type="primary" :loading="submitting" @click="install">
-            {{ form.startNow ? "Install & start" : "Install" }}
+            {{ form.startNow ? t("installWizard.installAndStart") : t("common.install") }}
           </NButton>
         </NSpace>
       </NSpace>
       <NSpace v-else justify="end">
-        <NButton @click="installAnother">Library</NButton>
-        <NButton @click="goConnect">Connect client</NButton>
-        <NButton type="primary" @click="openServer">Open server</NButton>
+        <NButton @click="installAnother">{{ t("installWizard.library") }}</NButton>
+        <NButton @click="goConnect">{{ t("installWizard.connectClient") }}</NButton>
+        <NButton type="primary" @click="openServer">{{ t("installWizard.openServer") }}</NButton>
       </NSpace>
     </template>
   </NModal>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import {
   NCheckbox,
   NCollapse,
@@ -21,18 +22,21 @@ defineProps<{
   showEnabled?: boolean;
 }>();
 
+const { t } = useI18n();
 const model = defineModel<ServerFormValues>({ required: true });
 
-const launcherOptions = [
-  { label: "npx (Node package)", value: "npx" },
-  { label: "uvx (Python / git+)", value: "uvx" },
-  { label: "Custom command", value: "custom" },
-];
+const launcherOptions = computed(() => [
+  { label: t("serverForm.launcherNpx"), value: "npx" },
+  { label: t("serverForm.launcherUvx"), value: "uvx" },
+  { label: t("serverForm.launcherCustom"), value: "custom" },
+]);
 
 const isCustom = computed(() => model.value.launcher === "custom");
 
 const packageTitle = computed(() =>
-  model.value.launcher === "uvx" ? "PyPI package name" : "npm package",
+  model.value.launcher === "uvx"
+    ? t("serverForm.pypiPackage")
+    : t("serverForm.npmPackage"),
 );
 
 const packagePlaceholder = computed(() =>
@@ -43,15 +47,15 @@ const packagePlaceholder = computed(() =>
 
 const extraHint = computed(() =>
   model.value.launcher === "uvx"
-    ? "(optional flags after the package — not --from; use Custom for that)"
-    : "(optional path or flags after the package)",
+    ? t("serverForm.extraHintUvx")
+    : t("serverForm.extraHintNpx"),
 );
 </script>
 
 <template>
   <NForm label-placement="top" require-mark-placement="right-hanging">
     <div class="grid-2">
-      <NFormItem v-if="showId !== false" label="ID" required>
+      <NFormItem v-if="showId !== false" :label="t('serverForm.id')" required>
         <NInput
           v-model:value="model.id"
           placeholder="mealie"
@@ -59,13 +63,13 @@ const extraHint = computed(() =>
           :allow-input="(v: string) => !v || /^[A-Za-z0-9_-]*$/.test(v)"
         />
       </NFormItem>
-      <NFormItem label="Display name">
+      <NFormItem :label="t('serverForm.displayName')">
         <NInput v-model:value="model.name" placeholder="Mealie" />
       </NFormItem>
     </div>
 
     <div class="grid-2">
-      <NFormItem label="Launch with">
+      <NFormItem :label="t('serverForm.launchWith')">
         <NSelect v-model:value="model.launcher" :options="launcherOptions" />
       </NFormItem>
       <NFormItem v-if="!isCustom" :label="packageTitle" required>
@@ -74,27 +78,31 @@ const extraHint = computed(() =>
           :placeholder="packagePlaceholder"
         />
       </NFormItem>
-      <NFormItem v-else label="Command" required>
+      <NFormItem v-else :label="t('serverForm.command')" required>
         <NInput v-model:value="model.command" placeholder="uvx" />
       </NFormItem>
     </div>
 
-    <NFormItem v-if="!isCustom" label="Version">
+    <NFormItem v-if="!isCustom" :label="t('serverForm.version')">
       <template #label>
-        Version
+        {{ t("serverForm.version") }}
         <NText depth="3" style="margin-left: 0.35rem; font-weight: 400">
-          (optional pin — leave empty for latest)
+          {{ t("serverForm.versionHint") }}
         </NText>
       </template>
       <NInput
         v-model:value="model.packageVersion"
-        :placeholder="model.launcher === 'uvx' ? 'e.g. 0.3.1' : 'e.g. 0.6.2'"
+        :placeholder="
+          model.launcher === 'uvx'
+            ? t('serverForm.versionPlaceholderUvx')
+            : t('serverForm.versionPlaceholderNpx')
+        "
       />
     </NFormItem>
 
-    <NFormItem v-if="!isCustom" label="Extra args">
+    <NFormItem v-if="!isCustom" :label="t('serverForm.extraArgs')">
       <template #label>
-        Extra args
+        {{ t("serverForm.extraArgs") }}
         <NText depth="3" style="margin-left: 0.35rem; font-weight: 400">
           {{ extraHint }}
         </NText>
@@ -102,16 +110,18 @@ const extraHint = computed(() =>
       <NInput
         v-model:value="model.extraArgs"
         :placeholder="
-          model.launcher === 'npx' ? 'e.g. /data/workspaces/fs' : 'optional tool flags'
+          model.launcher === 'npx'
+            ? t('serverForm.extraPlaceholderNpx')
+            : t('serverForm.extraPlaceholderUvx')
         "
       />
     </NFormItem>
 
-    <NFormItem v-else label="Args">
+    <NFormItem v-else :label="t('serverForm.args')">
       <template #label>
-        Args
+        {{ t("serverForm.args") }}
         <NText depth="3" style="margin-left: 0.35rem; font-weight: 400">
-          (one per line)
+          {{ t("serverForm.argsHint") }}
         </NText>
       </template>
       <NInput
@@ -121,29 +131,28 @@ const extraHint = computed(() =>
       />
     </NFormItem>
 
-    <NFormItem label="Environment">
+    <NFormItem :label="t('serverForm.environment')">
       <EnvKeyValueEditor v-model="model.env" />
     </NFormItem>
 
     <NCollapse>
       <NCollapseItem
-        title="Advanced: clone a git repo into the sandbox (optional)"
+        :title="t('serverForm.advancedGit')"
         name="git"
       >
         <div class="grid-2">
-          <NFormItem label="Git URL">
+          <NFormItem :label="t('serverForm.gitUrl')">
             <NInput
               v-model:value="model.git"
               placeholder="https://github.com/org/mcp-server.git"
             />
           </NFormItem>
-          <NFormItem label="Git ref">
+          <NFormItem :label="t('serverForm.gitRef')">
             <NInput v-model:value="model.ref" placeholder="main" />
           </NFormItem>
         </div>
         <NText depth="3">
-          For <code>uvx --from git+https://...</code>, leave empty — uvx fetches
-          the package.
+          {{ t("serverForm.gitUvxHint") }}
         </NText>
       </NCollapseItem>
     </NCollapse>
@@ -154,7 +163,7 @@ const extraHint = computed(() =>
       style="margin-top: 0.75rem"
     >
       <NCheckbox v-model:checked="model.startNow">
-        {{ enabledLabel || "Start immediately after save" }}
+        {{ enabledLabel || t("serverForm.startImmediately") }}
       </NCheckbox>
     </NFormItem>
   </NForm>

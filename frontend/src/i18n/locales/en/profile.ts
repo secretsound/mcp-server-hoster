@@ -1,0 +1,17 @@
+export default {
+  title: "Profile",
+  subtitle: "Your account and signed-in sessions",
+  account: "Account",
+  name: "Name",
+  email: "Email",
+  role: "Role",
+  sessions: "Sessions",
+  refresh: "Refresh",
+  revokeOther: "Revoke other sessions",
+  thisDevice: "this device",
+  createdExpires: "Created {created} · expires {expires}",
+  revoke: "Revoke",
+  noSessions: "No sessions listed",
+  otherRevoked: "Other sessions revoked",
+  sessionRevoked: "Session revoked",
+} as const;

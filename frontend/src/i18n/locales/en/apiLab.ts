@@ -1,0 +1,28 @@
+export default {
+  title: "API",
+  subtitle: "Admin REST under /api · MCP gateway at /mcp",
+  adminRestBase: "Admin REST API base",
+  copy: "Copy",
+  apiUrlCopied: "API URL copied",
+  copyFailed: "Could not copy",
+  endpoints: "Endpoints",
+  endpointsHint:
+    "Click a row to load an example request and response in the lab.",
+  method: "Method",
+  path: "Path",
+  description: "Description",
+  requestLab: "Request lab",
+  labHint:
+    "Prefills from the selected endpoint. Send runs a live request with your session.",
+  body: "Body",
+  noBody: "No body for {method}",
+  send: "Send",
+  showExample: "Show example",
+  exampleResponse: "Example response",
+  liveResponse: "Live response",
+  selectEndpoint: "(select an endpoint)",
+  noExample: "(no example)",
+  empty: "(empty)",
+  exampleStatus: "— example",
+  sendPlaceholder: "(send a request to replace this with a live response)",
+} as const;

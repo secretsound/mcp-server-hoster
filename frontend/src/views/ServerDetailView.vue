@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import {
   NAlert,
@@ -42,6 +43,7 @@ import {
   valuesFromServer,
 } from "../utils/serverForm";
 
+const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
 const servers = useServersStore();
@@ -53,7 +55,7 @@ const server = ref<ServerWithRuntime | null>(null);
 const loadError = ref("");
 const formError = ref("");
 const saving = ref(false);
-const logs = ref("(loading)");
+const logs = ref(t("serverDetail.logsLoading"));
 const tools = ref<ToolInfo[]>([]);
 const logsLoading = ref(false);
 const toolsLoading = ref(false);
@@ -152,17 +154,20 @@ function startLogStream() {
   stopLogStream?.();
   stopLogStream = null;
   logsLoading.value = true;
-  logs.value = "(connecting…)";
+  logs.value = t("serverDetail.logsConnecting");
   stopLogStream = servers.streamLogs(
     id.value,
     {
       onReset: (text) => {
-        logs.value = text || "(empty)";
+        logs.value = text || t("serverDetail.logsEmpty");
         logsLoading.value = false;
       },
       onChunk: (chunk) => {
         if (!chunk) return;
-        if (logs.value === "(empty)" || logs.value === "(connecting…)") {
+        if (
+          logs.value === t("serverDetail.logsEmpty") ||
+          logs.value === t("serverDetail.logsConnecting")
+        ) {
           logs.value = chunk;
         } else {
           logs.value += chunk;
@@ -194,8 +199,19 @@ async function loadTools() {
 
 const toolsBusy = ref(false);
 const enabledToolCount = computed(
-  () => tools.value.filter((t) => t.enabled !== false).length,
+  () => tools.value.filter((tool) => tool.enabled !== false).length,
 );
+
+const toolsTabLabel = computed(() => {
+  if (!tools.value.length) return t("serverDetail.tabTools");
+  if (enabledToolCount.value === tools.value.length) {
+    return t("serverDetail.tabToolsCount", { count: enabledToolCount.value });
+  }
+  return t("serverDetail.tabToolsPartial", {
+    enabled: enabledToolCount.value,
+    total: tools.value.length,
+  });
+});
 
 async function persistDisabledTools(disabledTools: string[]) {
   toolsBusy.value = true;
@@ -251,7 +267,9 @@ async function onEnabledChange(enabled: boolean) {
     const updated = await servers.update(id.value, { enabled });
     applyServer(updated);
     await loadTools();
-    message.success(enabled ? "Enabled — will keep running" : "Disabled");
+    message.success(
+      enabled ? t("serverDetail.enabledKeepRunning") : t("common.disabled"),
+    );
   } catch (err) {
     message.error(err instanceof Error ? err.message : String(err));
     await loadServer();
@@ -267,7 +285,9 @@ async function onUpgrade(toLatest = false) {
       version: toLatest ? null : (upgradeVersion.value.trim() || null),
       clearCache: clearCacheOnUpgrade.value,
     });
-    message.success(`Upgraded to ${result.upgrade.label}`);
+    message.success(
+      t("serverDetail.upgradedTo", { label: result.upgrade.label }),
+    );
     await loadServer();
     await loadTools();
     if (auth.can("audit:read")) void loadActivity();
@@ -285,13 +305,13 @@ function openDelete() {
 
 async function onDelete() {
   if (deleteConfirm.value !== id.value) {
-    message.warning(`Type ${id.value} to confirm`);
+    message.warning(t("serverDetail.typeToConfirm", { id: id.value }));
     return;
   }
   deleting.value = true;
   try {
     await servers.remove(id.value);
-    message.success("Deleted");
+    message.success(t("common.deleted"));
     deleteOpen.value = false;
     await router.push("/");
   } catch (err) {
@@ -329,7 +349,7 @@ async function onSave() {
     };
     const s = await servers.update(id.value, body);
     applyServer(s);
-    message.success("Saved");
+    message.success(t("common.saved"));
     await loadTools();
   } catch (err) {
     formError.value = err instanceof Error ? err.message : String(err);
@@ -339,7 +359,9 @@ async function onSave() {
 }
 
 async function copyEndpoint() {
-  if (await copyText(mcpUrl.value)) message.success("Endpoint copied");
+  if (await copyText(mcpUrl.value)) {
+    message.success(t("serverDetail.endpointCopied"));
+  }
 }
 
 onMounted(async () => {
@@ -387,8 +409,8 @@ watch(
     <template v-else-if="loadError">
       <div class="page-head">
         <div>
-          <RouterLink class="back" to="/">← Servers</RouterLink>
-          <h1 style="margin-top: 0.35rem">Not found</h1>
+          <RouterLink class="back" to="/">{{ t("serverDetail.backToServers") }}</RouterLink>
+          <h1 style="margin-top: 0.35rem">{{ t("serverDetail.notFound") }}</h1>
           <p class="page-sub">{{ loadError }}</p>
         </div>
       </div>
@@ -397,7 +419,7 @@ watch(
     <template v-else-if="server">
       <div class="page-head">
         <div>
-          <RouterLink class="back" to="/">← Servers</RouterLink>
+          <RouterLink class="back" to="/">{{ t("serverDetail.backToServers") }}</RouterLink>
           <h1 style="margin-top: 0.35rem">{{ server.name || server.id }}</h1>
           <p class="page-sub">
             {{ server.id }} ·
@@ -415,9 +437,9 @@ watch(
           <div
             v-if="auth.can('servers:write')"
             class="enabled-toggle"
-            title="When enabled, the host keeps this server running"
+            :title="t('serverDetail.enabledTitle')"
           >
-            <NText depth="3">Enabled</NText>
+            <NText depth="3">{{ t("common.enabled") }}</NText>
             <NSwitch
               :value="server.enabled !== false"
               :loading="enabling"
@@ -429,7 +451,7 @@ watch(
             :loading="servers.busyIds[server.id]"
             @click="act('stop')"
           >
-            Stop
+            {{ t("common.stop") }}
           </NButton>
           <NButton
             v-else-if="auth.can('servers:lifecycle')"
@@ -438,14 +460,14 @@ watch(
             :loading="servers.busyIds[server.id]"
             @click="act('start')"
           >
-            Start
+            {{ t("common.start") }}
           </NButton>
           <NButton
             v-if="auth.can('servers:lifecycle') && isActiveStatus(st)"
             :loading="servers.busyIds[server.id]"
             @click="act('restart')"
           >
-            Restart
+            {{ t("common.restart") }}
           </NButton>
           <NButton
             v-if="auth.can('servers:write')"
@@ -453,18 +475,18 @@ watch(
             secondary
             @click="openDelete"
           >
-            Delete
+            {{ t("common.delete") }}
           </NButton>
         </NSpace>
       </div>
 
       <div class="metrics">
         <div class="metric">
-          <NText depth="3">Restarts</NText>
+          <NText depth="3">{{ t("serverDetail.restarts") }}</NText>
           <strong>{{ server.runtime?.restartCount ?? 0 }}</strong>
         </div>
         <div class="metric">
-          <NText depth="3">Last started</NText>
+          <NText depth="3">{{ t("serverDetail.lastStarted") }}</NText>
           <strong>
             {{
               server.runtime?.lastStartedAt
@@ -474,7 +496,7 @@ watch(
           </strong>
         </div>
         <div class="metric">
-          <NText depth="3">Last crash</NText>
+          <NText depth="3">{{ t("serverDetail.lastCrash") }}</NText>
           <strong>
             {{
               server.runtime?.lastCrashAt
@@ -484,11 +506,11 @@ watch(
           </strong>
         </div>
         <div class="metric">
-          <NText depth="3">Tools</NText>
+          <NText depth="3">{{ t("serverDetail.tools") }}</NText>
           <strong>{{ server.toolCount ?? tools.length }}</strong>
         </div>
         <div class="metric">
-          <NText depth="3">Last upgraded</NText>
+          <NText depth="3">{{ t("serverDetail.lastUpgraded") }}</NText>
           <strong>
             {{
               server.lastUpgradedAt
@@ -502,14 +524,13 @@ watch(
       <NCard size="small" style="margin-bottom: 1rem" class="endpoint-card">
         <div class="endpoint-row">
           <div class="endpoint-main">
-            <NText depth="3">MCP endpoint</NText>
+            <NText depth="3">{{ t("serverDetail.mcpEndpoint") }}</NText>
             <code class="endpoint-url">{{ mcpUrl }}</code>
           </div>
-          <NButton size="small" @click="copyEndpoint">Copy</NButton>
+          <NButton size="small" @click="copyEndpoint">{{ t("common.copy") }}</NButton>
         </div>
         <NText depth="3" class="endpoint-hint">
-          Original tool names on this URL · namespaced as
-          <code>{{ server.id }}__*</code> on the unified gateway
+          {{ t("serverDetail.endpointHint", { ns: `${server.id}__*` }) }}
         </NText>
       </NCard>
 
@@ -518,12 +539,12 @@ watch(
         type="error"
         style="margin-bottom: 1rem"
         :bordered="false"
-        title="Server crashed"
+        :title="t('serverDetail.crashedTitle')"
       >
         <div class="crash-alert">
           <span>{{ server.runtime?.lastError }}</span>
           <NButton size="tiny" type="error" secondary @click="activeTab = 'logs'">
-            Open logs
+            {{ t("serverDetail.openLogs") }}
           </NButton>
         </div>
       </NAlert>
@@ -533,11 +554,11 @@ watch(
         style="margin-bottom: 1rem"
         :bordered="false"
       >
-        Process exited — automatically restarting…
+        {{ t("serverDetail.restarting") }}
       </NAlert>
 
       <NTabs v-model:value="activeTab" type="line" animated>
-        <NTabPane name="config" tab="Configuration">
+        <NTabPane name="config" :tab="t('serverDetail.tabConfig')">
           <NCard size="small">
             <ServerFormFields
               v-model="form"
@@ -548,26 +569,25 @@ watch(
             <NText v-if="formError" type="error">{{ formError }}</NText>
             <NSpace justify="end" style="margin-top: 0.5rem">
               <NButton type="primary" :loading="saving" @click="onSave">
-                Save changes
+                {{ t("serverDetail.saveChanges") }}
               </NButton>
             </NSpace>
           </NCard>
         </NTabPane>
 
-        <NTabPane v-if="canUpgrade" name="upgrade" tab="Upgrade">
-          <NCard size="small" title="Version & upgrade">
+        <NTabPane v-if="canUpgrade" name="upgrade" :tab="t('serverDetail.tabUpgrade')">
+          <NCard size="small" :title="t('serverDetail.upgradeTitle')">
             <NText depth="3" style="display: block; margin-bottom: 0.75rem">
-              Pin a package version (or git ref), or pull the latest and restart.
-              Clearing the sandbox cache forces a fresh download.
+              {{ t("serverDetail.upgradeHelp") }}
             </NText>
             <div class="upgrade-row">
               <NInput
                 v-model:value="upgradeVersion"
-                placeholder="Leave empty for latest"
+                :placeholder="t('serverDetail.upgradePlaceholder')"
                 style="max-width: 18rem"
               />
               <NCheckbox v-model:checked="clearCacheOnUpgrade">
-                Clear package cache
+                {{ t("serverDetail.clearCache") }}
               </NCheckbox>
               <NSpace>
                 <NButton
@@ -577,8 +597,8 @@ watch(
                 >
                   {{
                     upgradeVersion.trim()
-                      ? "Upgrade to pin"
-                      : "Upgrade to latest"
+                      ? t("serverDetail.upgradeToPin")
+                      : t("serverDetail.upgradeToLatest")
                   }}
                 </NButton>
                 <NButton
@@ -587,7 +607,7 @@ watch(
                   :loading="upgrading"
                   @click="onUpgrade(true)"
                 >
-                  Pull latest
+                  {{ t("serverDetail.pullLatest") }}
                 </NButton>
               </NSpace>
             </div>
@@ -596,13 +616,16 @@ watch(
               depth="3"
               style="display: block; margin-top: 0.85rem; font-size: 0.85rem"
             >
-              Last upgraded
-              {{ new Date(server.lastUpgradedAt).toLocaleString() }}
+              {{
+                t("serverDetail.lastUpgradedAt", {
+                  when: new Date(server.lastUpgradedAt).toLocaleString(),
+                })
+              }}
             </NText>
           </NCard>
         </NTabPane>
 
-        <NTabPane name="logs" tab="Logs">
+        <NTabPane name="logs" :tab="t('serverDetail.tabLogs')">
           <LogViewer
             :logs="logs"
             :loading="logsLoading"
@@ -610,18 +633,7 @@ watch(
           />
         </NTabPane>
 
-        <NTabPane
-          name="tools"
-          :tab="
-            tools.length
-              ? `Tools (${enabledToolCount}${
-                enabledToolCount === tools.length
-                  ? ''
-                  : `/${tools.length}`
-              })`
-              : 'Tools'
-          "
-        >
+        <NTabPane name="tools" :tab="toolsTabLabel">
           <ToolList
             :tools="tools"
             :loading="toolsLoading"
@@ -636,12 +648,12 @@ watch(
         <NTabPane
           v-if="auth.can('audit:read')"
           name="activity"
-          tab="Activity"
+          :tab="t('serverDetail.tabActivity')"
         >
           <NSpin :show="activityLoading">
             <NEmpty
               v-if="!activity.length"
-              description="No audit events for this server yet"
+              :description="t('serverDetail.noAuditEvents')"
             />
             <div v-else class="activity">
               <div v-for="ev in activity" :key="ev.id" class="activity-row">
@@ -649,7 +661,7 @@ watch(
                 <div class="activity-body">
                   <div>{{ ev.summary }}</div>
                   <NText depth="3">
-                    {{ ev.actorEmail || "system" }} ·
+                    {{ ev.actorEmail || t("serverDetail.systemActor") }} ·
                     {{ new Date(ev.createdAt).toLocaleString() }}
                   </NText>
                 </div>
@@ -662,12 +674,11 @@ watch(
       <NModal
         v-model:show="deleteOpen"
         preset="card"
-        title="Delete server"
+        :title="t('serverDetail.deleteTitle')"
         style="width: min(440px, 96vw)"
       >
         <NAlert type="warning" :bordered="false" style="margin-bottom: 0.85rem">
-          This removes the server definition and stops it. Type
-          <code>{{ id }}</code> to confirm.
+          {{ t("serverDetail.deleteWarning", { id }) }}
         </NAlert>
         <NInput
           v-model:value="deleteConfirm"
@@ -675,14 +686,14 @@ watch(
           autocomplete="off"
         />
         <NSpace justify="end" style="margin-top: 1rem">
-          <NButton @click="deleteOpen = false">Cancel</NButton>
+          <NButton @click="deleteOpen = false">{{ t("common.cancel") }}</NButton>
           <NButton
             type="error"
             :loading="deleting"
             :disabled="deleteConfirm !== id"
             @click="onDelete"
           >
-            Delete permanently
+            {{ t("serverDetail.deletePermanently") }}
           </NButton>
         </NSpace>
       </NModal>

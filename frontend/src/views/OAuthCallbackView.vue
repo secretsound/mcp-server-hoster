@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import { NSpin, NText } from "naive-ui";
 import { useAuthStore } from "../stores/auth";
 
+const { t } = useI18n();
 const auth = useAuthStore();
 const route = useRoute();
 const router = useRouter();
@@ -17,7 +19,7 @@ onMounted(async () => {
   if (redirect.startsWith("/ui/")) redirect = redirect.slice(3) || "/";
   else if (redirect === "/ui") redirect = "/";
   if (!token) {
-    error.value = "Missing OAuth token";
+    error.value = t("oauth.missingToken");
     return;
   }
   auth.acceptSessionToken(token);
@@ -34,7 +36,7 @@ onMounted(async () => {
   <div class="wrap">
     <NSpin v-if="!error" size="large" />
     <NText v-else type="error">{{ error }}</NText>
-    <NText depth="3">Completing sign-in…</NText>
+    <NText depth="3">{{ t("oauth.completing") }}</NText>
   </div>
 </template>
 

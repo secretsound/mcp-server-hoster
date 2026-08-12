@@ -1,0 +1,20 @@
+export default {
+  title: "Servers",
+  configuredRunning: "{configured} configured · {running} running",
+  live: "· live",
+  reconnecting: "· reconnecting…",
+  empty:
+    "No servers configured yet — use the checklist above, or jump straight in.",
+  addServer: "Add server",
+  browseLibrary: "Browse library",
+  toolsCount: "{count} tools",
+  offCount: "{count} off",
+  envCount: "{count} env",
+  disabled: "disabled",
+  startedAt: "Started {when}",
+  neverStarted: "Never started",
+  pid: "· pid {pid}",
+  restarts: "· {count} restarts",
+  logs: "Logs",
+  configure: "Configure",
+} as const;

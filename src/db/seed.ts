@@ -8,7 +8,7 @@ import type {
 
 type SeedFile = {
   servers?: CreateServerInput[];
-  /** @deprecated Prefer seed/library.json via LIBRARY_SEED_PATH */
+  /** @deprecated Prefer catalog/catalog.json via LIBRARY_SEED_PATH */
   library?: LibraryItemInput[];
   libraryCategories?: LibraryCategoryInput[];
 };
@@ -17,6 +17,13 @@ type LibrarySeedFile = {
   categories?: LibraryCategoryInput[];
   items?: LibraryItemInput[];
 };
+
+/** Bundled fallback when offline / private network. */
+export const DEFAULT_LIBRARY_CATALOG_FILE = "./catalog/catalog.json";
+
+function isRemoteUrl(path: string): boolean {
+  return /^https?:\/\//i.test(path);
+}
 
 async function readJsonFile<T>(path: string): Promise<T | null> {
   try {
@@ -28,13 +35,67 @@ async function readJsonFile<T>(path: string): Promise<T | null> {
   return JSON.parse(await Deno.readTextFile(path)) as T;
 }
 
+async function readJsonUrl<T>(url: string): Promise<T | null> {
+  try {
+    const res = await fetch(url, {
+      headers: { Accept: "application/json" },
+    });
+    if (!res.ok) {
+      console.error(
+        `[db] library catalog fetch failed (${res.status}): ${url}`,
+      );
+      return null;
+    }
+    return (await res.json()) as T;
+  } catch (err) {
+    console.error(
+      `[db] library catalog fetch error: ${url} — ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    );
+    return null;
+  }
+}
+
+/** Load JSON from a local path or http(s) URL. */
+export async function loadJsonSource<T>(
+  source: string,
+): Promise<T | null> {
+  if (isRemoteUrl(source)) return await readJsonUrl<T>(source);
+  return await readJsonFile<T>(source);
+}
+
+/**
+ * Resolve library catalog JSON.
+ * Prefer LIBRARY_SEED_PATH (URL or file); if remote fails, fall back to bundled file.
+ */
+export async function loadLibrarySeed(
+  librarySeedPath: string | null,
+): Promise<LibrarySeedFile | null> {
+  if (!librarySeedPath) return null;
+
+  const primary = await loadJsonSource<LibrarySeedFile>(librarySeedPath);
+  if (primary) return primary;
+
+  if (
+    isRemoteUrl(librarySeedPath) &&
+    librarySeedPath !== DEFAULT_LIBRARY_CATALOG_FILE
+  ) {
+    console.error(
+      `[db] falling back to bundled catalog: ${DEFAULT_LIBRARY_CATALOG_FILE}`,
+    );
+    return await readJsonFile<LibrarySeedFile>(DEFAULT_LIBRARY_CATALOG_FILE);
+  }
+  return null;
+}
+
 export async function seedIfEmpty(
   servers: ServerRepository,
   seedPath: string | null,
   library?: LibraryRepository,
   librarySeedPath?: string | null,
 ): Promise<void> {
-  const seedData = seedPath ? await readJsonFile<SeedFile>(seedPath) : null;
+  const seedData = seedPath ? await loadJsonSource<SeedFile>(seedPath) : null;
   if (seedPath && !seedData) {
     console.error(`[db] seed file not found: ${seedPath}`);
   }
@@ -48,11 +109,9 @@ export async function seedIfEmpty(
 
   if (!library) return;
 
-  const librarySeed = librarySeedPath
-    ? await readJsonFile<LibrarySeedFile>(librarySeedPath)
-    : null;
+  const librarySeed = await loadLibrarySeed(librarySeedPath ?? null);
   if (librarySeedPath && !librarySeed) {
-    console.error(`[db] library seed file not found: ${librarySeedPath}`);
+    console.error(`[db] library seed not available: ${librarySeedPath}`);
   }
 
   const categories = librarySeed?.categories ??

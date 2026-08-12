@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import {
   NAlert,
@@ -25,6 +26,7 @@ type ConsentRequest = {
   expiresAt: string;
 };
 
+const { t } = useI18n();
 const auth = useAuthStore();
 const theme = useThemeStore();
 const route = useRoute();
@@ -46,7 +48,7 @@ const returnPath = computed(() =>
 
 onMounted(async () => {
   if (!requestId.value) {
-    errorMsg.value = "Missing authorization request";
+    errorMsg.value = t("consent.missingRequest");
     loading.value = false;
     return;
   }
@@ -83,7 +85,7 @@ async function decide(approve: boolean) {
         approve,
       }),
     });
-    if (approve) message.success("Authorized");
+    if (approve) message.success(t("consent.authorized"));
     window.location.href = res.redirectTo;
   } catch (err) {
     if (err instanceof ApiError && err.status === 401) {
@@ -106,9 +108,9 @@ async function decide(approve: boolean) {
       <div class="brand">
         <span class="brand-mark">MH</span>
         <div>
-          <h1>Authorize MCP client</h1>
+          <h1>{{ t("consent.title") }}</h1>
           <NText depth="3">
-            Sign-in context will be used for tool access on this host.
+            {{ t("consent.subtitle") }}
           </NText>
         </div>
       </div>
@@ -119,27 +121,29 @@ async function decide(approve: boolean) {
 
       <template v-else-if="request && auth.user">
         <NAlert type="info" :bordered="false" style="margin-bottom: 1rem">
-          <strong>{{ request.clientName }}</strong>
-          wants to access MCP tools as
-          <strong>{{ auth.user.displayName || auth.user.email }}</strong>.
-          Access follows your user grants (same ceiling as your account).
+          {{
+            t("consent.wantsAccess", {
+              clientName: request.clientName,
+              user: auth.user.displayName || auth.user.email,
+            })
+          }}
         </NAlert>
 
         <dl class="meta">
           <div>
-            <dt>Client</dt>
+            <dt>{{ t("consent.client") }}</dt>
             <dd>{{ request.clientName }}</dd>
           </div>
           <div>
-            <dt>Scope</dt>
+            <dt>{{ t("consent.scope") }}</dt>
             <dd><code>{{ request.scope }}</code></dd>
           </div>
           <div v-if="request.resource">
-            <dt>Resource</dt>
+            <dt>{{ t("consent.resource") }}</dt>
             <dd><code class="wrap">{{ request.resource }}</code></dd>
           </div>
           <div>
-            <dt>Redirect</dt>
+            <dt>{{ t("consent.redirect") }}</dt>
             <dd><code class="wrap">{{ request.redirectUri }}</code></dd>
           </div>
         </dl>
@@ -154,13 +158,15 @@ async function decide(approve: boolean) {
         </NAlert>
 
         <NSpace justify="end">
-          <NButton :disabled="deciding" @click="decide(false)">Deny</NButton>
+          <NButton :disabled="deciding" @click="decide(false)">
+            {{ t("consent.deny") }}
+          </NButton>
           <NButton
             type="primary"
             :loading="deciding"
             @click="decide(true)"
           >
-            Allow
+            {{ t("consent.allow") }}
           </NButton>
         </NSpace>
       </template>

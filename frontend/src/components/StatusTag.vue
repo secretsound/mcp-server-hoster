@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import { NTag, NTooltip } from "naive-ui";
 import { statusLabel } from "../utils/serverForm";
 
@@ -8,6 +9,8 @@ const props = defineProps<{
   /** Shown in tooltip when present (typically lastError for crashed servers). */
   error?: string | null;
 }>();
+
+const { locale } = useI18n();
 
 const type = computed(() => {
   switch (props.status) {
@@ -23,7 +26,10 @@ const type = computed(() => {
   }
 });
 
-const label = computed(() => statusLabel(props.status));
+const label = computed(() => {
+  void locale.value;
+  return statusLabel(props.status);
+});
 const tip = computed(() => props.error?.trim() || null);
 </script>
 

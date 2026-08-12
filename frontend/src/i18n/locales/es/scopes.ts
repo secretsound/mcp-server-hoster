@@ -1,0 +1,18 @@
+export default {
+  empty: "Aún no hay alcances de servidor — añade uno para conceder acceso.",
+  server: "Servidor",
+  remove: "Quitar",
+  allTools: "Todas las herramientas de este servidor",
+  loadingTools: "Cargando herramientas…",
+  noTools: "Aún no hay herramientas disponibles para este servidor.",
+  quickSelect: "Selección rápida",
+  allPrefix: "Todos {prefix}",
+  addServerScope: "Añadir alcance de servidor",
+  allServers: "Todos los servidores (*)",
+  allToolsLabel: "todas las herramientas",
+  none: "ninguna",
+  noScopes: "sin alcances",
+  allServersAllTools: "todos los servidores · todas las herramientas",
+  allServersLimitedTools: "todos los servidores · herramientas limitadas",
+  nServers: "{n} servidor | {n} servidores",
+} as const;

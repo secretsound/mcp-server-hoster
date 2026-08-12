@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import { NText } from "naive-ui";
 import type { ScopeGrant } from "../types";
 import { scopesSummary } from "../utils/scopes";
@@ -19,10 +20,13 @@ const props = withDefaults(
   },
 );
 
+const { t, locale } = useI18n();
+
 const text = computed(() => {
-  if (props.unrestricted) return "Full access — no ceiling";
+  void locale.value;
+  if (props.unrestricted) return t("grants.fullAccess");
   if (!props.grants.length) {
-    return "No grants — cannot reach any servers until you add scopes";
+    return t("grants.noGrants");
   }
   return scopesSummary(props.grants);
 });
@@ -40,7 +44,7 @@ const detail = computed(() => {
 <template>
   <div class="ceiling" :class="{ compact }">
     <NText depth="3" class="label">
-      {{ label || "Grant ceiling" }}
+      {{ label || t("grants.ceiling") }}
     </NText>
     <div class="value">{{ text }}</div>
     <div v-if="detail" class="detail" :title="detail">{{ detail }}</div>

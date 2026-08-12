@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from "vue-i18n";
 import { NButton, NCard, NSpace, NText } from "naive-ui";
 import { RefreshOutline } from "@vicons/ionicons5";
 import { NIcon } from "naive-ui";
@@ -8,6 +9,7 @@ defineProps<{
   loading?: boolean;
 }>();
 
+const { t } = useI18n();
 const emit = defineEmits<{ refresh: [] }>();
 </script>
 
@@ -15,16 +17,16 @@ const emit = defineEmits<{ refresh: [] }>();
   <NCard size="small" :bordered="true">
     <template #header>
       <NSpace justify="space-between" align="center">
-        <span>Logs</span>
+        <span>{{ t("logs.title") }}</span>
         <NButton size="tiny" quaternary :loading="loading" @click="emit('refresh')">
           <template #icon>
             <NIcon :component="RefreshOutline" />
           </template>
-          Refresh
+          {{ t("common.refresh") }}
         </NButton>
       </NSpace>
     </template>
-    <pre class="log">{{ logs || "(empty)" }}</pre>
+    <pre class="log">{{ logs || t("logs.empty") }}</pre>
     <NText v-if="!logs" depth="3" style="display: none" />
   </NCard>
 </template>

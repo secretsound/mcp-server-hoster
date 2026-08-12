@@ -1,0 +1,48 @@
+export default {
+  npx: {
+    label: "npx package",
+    note: "Run any Node MCP server published to npm. Uses npx -y <package> [args].",
+  },
+  uvx: {
+    label: "uvx package",
+    note: "Run a Python MCP server from PyPI (or a tool name uvx can resolve).",
+  },
+  "uvx-git": {
+    label: "uvx from Git",
+    note: "Run a Python MCP server directly from a Git repo via uvx --from git+https://…",
+  },
+  "git-clone": {
+    label: "Git clone + run",
+    note: "Clone a repo into the server sandbox, then run a command from that checkout.",
+  },
+  custom: {
+    label: "Custom command",
+    note: "Any binary on PATH — node, python, docker, a local script, etc.",
+  },
+  endpoints: {
+    health: "Host + per-server process health",
+    listServers: "List configured servers",
+    createServer: "Create a server (JSON body)",
+    getServer: "Get one server",
+    updateServer: "Update server config",
+    deleteServer: "Delete a server",
+    startServer: "Start process + MCP client",
+    stopServer: "Stop process",
+    restartServer: "Restart process",
+    upgradeServer: "Pin/upgrade package or git ref (optional clearCache)",
+    serverLogs: "Tail on-disk logs",
+    serverTools: "Discovered tools (when running)",
+    listLibrary: "List library categories + items",
+    createCategory: "Create a library category",
+    updateCategory: "Update a library category",
+    deleteCategory: "Delete a library category",
+    getLibraryItem: "Get one library item",
+    createLibraryItem: "Create a library item",
+    updateLibraryItem: "Update a library item",
+    deleteLibraryItem: "Delete a library item",
+    getSettings: "Host settings key/values",
+    updateSettings: "Update settings (JSON object)",
+    unifiedMcp: "Unified Streamable HTTP MCP gateway (all servers, namespaced tools)",
+    perServerMcp: "Per-server MCP endpoint (original tool names)",
+  },
+} as const;

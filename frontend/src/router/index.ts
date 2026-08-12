@@ -65,6 +65,11 @@ const router = createRouter({
           meta: { permission: "servers:read" },
         },
         {
+          path: "profile",
+          name: "profile",
+          component: () => import("../views/ProfileView.vue"),
+        },
+        {
           path: "keys",
           name: "keys",
           component: () => import("../views/KeysView.vue"),

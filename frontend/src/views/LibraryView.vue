@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import {
   NAlert,
@@ -27,6 +28,7 @@ import {
   requiredEnvKeysFromPairs,
 } from "../utils/serverForm";
 
+const { t } = useI18n();
 const servers = useServersStore();
 const library = useLibraryStore();
 const ui = useUiStore();
@@ -44,7 +46,11 @@ onMounted(() => {
 const installed = computed(() => new Set(servers.servers.map((s) => s.id)));
 
 const categoryOptions = computed(() => [
-  { id: "all" as const, label: "All", description: "Everything in the library" },
+  {
+    id: "all" as const,
+    label: t("library.all"),
+    description: t("library.allDescription"),
+  },
   ...library.categories,
 ]);
 
@@ -82,9 +88,9 @@ const grouped = computed(() => {
         id: category.value,
         label:
           category.value === "all"
-            ? "Results"
+            ? t("library.results")
             : library.categories.find((c) => c.id === category.value)?.label ||
-              "Results",
+              t("library.results"),
         description: "",
         items: filtered.value,
       },
@@ -137,9 +143,9 @@ function isInstalled(item: LibraryItem): boolean {
   <div>
     <div class="page-head">
       <div>
-        <h1>Library</h1>
+        <h1>{{ t("library.title") }}</h1>
         <p class="page-sub">
-          Browse preconfigured MCP servers to install on this host.
+          {{ t("library.subtitle") }}
         </p>
       </div>
     </div>
@@ -147,7 +153,7 @@ function isInstalled(item: LibraryItem): boolean {
     <NAlert v-if="library.error" type="error" style="margin-bottom: 1rem">
       {{ library.error }}
       <template #action>
-        <NButton size="small" @click="library.refresh()">Retry</NButton>
+        <NButton size="small" @click="library.refresh()">{{ t("library.retry") }}</NButton>
       </template>
     </NAlert>
 
@@ -156,7 +162,7 @@ function isInstalled(item: LibraryItem): boolean {
         <NInput
           v-model:value="query"
           clearable
-          placeholder="Search servers, tags, or sources…"
+          :placeholder="t('library.searchPlaceholder')"
           class="search"
         >
           <template #prefix>
@@ -179,8 +185,8 @@ function isInstalled(item: LibraryItem): boolean {
 
       <section v-if="showFeatured" class="featured">
         <div class="section-head">
-          <h2>Featured</h2>
-          <NText depth="3">A few solid starting points</NText>
+          <h2>{{ t("library.featured") }}</h2>
+          <NText depth="3">{{ t("library.featuredSub") }}</NText>
         </div>
         <div class="featured-grid">
           <NCard
@@ -202,9 +208,9 @@ function isInstalled(item: LibraryItem): boolean {
                     type="success"
                     :bordered="false"
                   >
-                    installed
+                    {{ t("library.installed") }}
                   </NTag>
-                  <NTag v-else size="small" :bordered="false">featured</NTag>
+                  <NTag v-else size="small" :bordered="false">{{ t("library.featuredTag") }}</NTag>
                 </NSpace>
               </template>
               <template #description>
@@ -227,7 +233,7 @@ function isInstalled(item: LibraryItem): boolean {
                     size="tiny"
                     :bordered="false"
                   >
-                    {{ requiredEnvCount(item) }} env
+                    {{ t("library.envCount", { count: requiredEnvCount(item) }) }}
                   </NTag>
                   <NTag
                     v-if="isSelfHostedLibraryItem(item.tags)"
@@ -235,7 +241,7 @@ function isInstalled(item: LibraryItem): boolean {
                     type="warning"
                     :bordered="false"
                   >
-                    self-hosted
+                    {{ t("library.selfHosted") }}
                   </NTag>
                 </NSpace>
               </div>
@@ -249,14 +255,14 @@ function isInstalled(item: LibraryItem): boolean {
                     :disabled="isInstalled(item)"
                     @click="install(item)"
                   >
-                    {{ isInstalled(item) ? "Installed" : "Install" }}
+                    {{ isInstalled(item) ? t("common.installed") : t("common.install") }}
                   </NButton>
                   <NButton
                     v-if="isInstalled(item)"
                     size="small"
                     @click="openServer(item.preset?.id || item.id)"
                   >
-                    Open
+                    {{ t("common.open") }}
                   </NButton>
                 </NSpace>
               </template>
@@ -267,7 +273,7 @@ function isInstalled(item: LibraryItem): boolean {
 
       <NEmpty
         v-if="!filtered.length"
-        description="No servers match your search."
+        :description="t('library.noMatch')"
         style="margin-top: 2rem"
       >
         <template #extra>
@@ -277,7 +283,7 @@ function isInstalled(item: LibraryItem): boolean {
               category = 'all';
             "
           >
-            Clear filters
+            {{ t("library.clearFilters") }}
           </NButton>
         </template>
       </NEmpty>
@@ -290,7 +296,7 @@ function isInstalled(item: LibraryItem): boolean {
         <div class="section-head">
           <h2>{{ group.label }}</h2>
           <NText v-if="group.description" depth="3">{{ group.description }}</NText>
-          <NText v-else depth="3">{{ group.items.length }} servers</NText>
+          <NText v-else depth="3">{{ t("library.serversCount", { count: group.items.length }) }}</NText>
         </div>
         <div class="cards">
           <NCard
@@ -311,7 +317,7 @@ function isInstalled(item: LibraryItem): boolean {
                   type="success"
                   :bordered="false"
                 >
-                  installed
+                  {{ t("library.installed") }}
                 </NTag>
               </template>
               <template #description>
@@ -335,7 +341,7 @@ function isInstalled(item: LibraryItem): boolean {
                     size="tiny"
                     :bordered="false"
                   >
-                    {{ requiredEnvCount(item) }} env
+                    {{ t("library.envCount", { count: requiredEnvCount(item) }) }}
                   </NTag>
                   <NTag
                     v-if="isSelfHostedLibraryItem(item.tags)"
@@ -343,7 +349,7 @@ function isInstalled(item: LibraryItem): boolean {
                     type="warning"
                     :bordered="false"
                   >
-                    self-hosted
+                    {{ t("library.selfHosted") }}
                   </NTag>
                   <NTag
                     v-if="isOfficialLibraryItem(item.tags)"
@@ -351,15 +357,15 @@ function isInstalled(item: LibraryItem): boolean {
                     type="success"
                     :bordered="false"
                   >
-                    official
+                    {{ t("library.official") }}
                   </NTag>
                   <NTag
-                    v-for="t in displayLibraryTags(item.tags)"
-                    :key="t"
+                    v-for="tag in displayLibraryTags(item.tags)"
+                    :key="tag"
                     size="tiny"
                     :bordered="false"
                   >
-                    {{ t }}
+                    {{ tag }}
                   </NTag>
                 </NSpace>
               </div>
@@ -373,14 +379,14 @@ function isInstalled(item: LibraryItem): boolean {
                     :disabled="isInstalled(item)"
                     @click="install(item)"
                   >
-                    {{ isInstalled(item) ? "Installed" : "Install" }}
+                    {{ isInstalled(item) ? t("common.installed") : t("common.install") }}
                   </NButton>
                   <NButton
                     v-if="isInstalled(item)"
                     size="small"
                     @click="openServer(item.preset?.id || item.id)"
                   >
-                    Open
+                    {{ t("common.open") }}
                   </NButton>
                 </NSpace>
               </template>

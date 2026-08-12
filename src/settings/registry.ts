@@ -113,6 +113,57 @@ export const SETTING_DEFS: SettingDef[] = [
     restartRequired: false,
     description: "Default log lines to load in the UI",
   },
+  {
+    key: "auth.saml_enabled",
+    type: "boolean",
+    default: "false",
+    restartRequired: false,
+    description: "Enable SAML 2.0 SSO",
+  },
+  {
+    key: "auth.saml_idp_entity_id",
+    type: "string",
+    default: "",
+    restartRequired: false,
+    description: "SAML IdP entity ID",
+  },
+  {
+    key: "auth.saml_sso_url",
+    type: "string",
+    default: "",
+    restartRequired: false,
+    description: "SAML IdP SSO URL",
+  },
+  {
+    key: "auth.saml_certificate",
+    type: "string",
+    default: "",
+    restartRequired: false,
+    sensitive: true,
+    description: "SAML IdP X.509 certificate (PEM)",
+  },
+  {
+    key: "auth.saml_email_attribute",
+    type: "string",
+    default: "email",
+    restartRequired: false,
+    description: "SAML assertion attribute for email",
+  },
+  {
+    key: "auth.scim_enabled",
+    type: "boolean",
+    default: "false",
+    restartRequired: false,
+    description: "Enable SCIM 2.0 provisioning endpoint",
+  },
+  {
+    key: "auth.scim_bearer_token",
+    type: "string",
+    default: "",
+    restartRequired: false,
+    sensitive: true,
+    description: "Bearer token for SCIM clients",
+  },
 ];
 
 const DEF_BY_KEY = new Map(SETTING_DEFS.map((d) => [d.key, d]));

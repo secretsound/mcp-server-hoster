@@ -12,7 +12,6 @@ services:
       HOST_PORT: "8080"
       DATA_DIR: "/workspaces/mcp_hoster/data"
       DATABASE_URL: "sqlite:///workspaces/mcp_hoster/data/mcp-hoster.db"
-      SEED_PATH: "/workspaces/mcp_hoster/seed.example.json"
       MIGRATIONS_DIR: "/workspaces/mcp_hoster/migrations"
       # Local POC: open until first user. Prefer BOOTSTRAP_ADMIN_* when exposing beyond localhost.
       AUTH_ALLOW_OPEN: "1"

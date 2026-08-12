@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import {
   NAlert,
   NButton,
@@ -20,6 +21,7 @@ import {
 import { useAuthStore } from "../stores/auth";
 import type { PermissionInfo, RoleRecord } from "../types";
 
+const { t } = useI18n();
 const auth = useAuthStore();
 const message = useMessage();
 const dialog = useDialog();
@@ -141,7 +143,7 @@ async function save() {
         description: form.description || null,
         permissions: editing.value.isSystem ? undefined : form.permissions,
       });
-      message.success("Role updated");
+      message.success(t("roles.updatedToast"));
     } else {
       await auth.createRole({
         slug: form.slug,
@@ -149,7 +151,7 @@ async function save() {
         description: form.description || null,
         permissions: form.permissions,
       });
-      message.success("Role created");
+      message.success(t("roles.createdToast"));
     }
     modalOpen.value = false;
     await refresh();
@@ -162,14 +164,14 @@ async function save() {
 
 function remove(role: RoleRecord) {
   dialog.warning({
-    title: "Delete role?",
-    content: `Delete role “${role.name}”? Users must be reassigned first.`,
-    positiveText: "Delete",
-    negativeText: "Cancel",
+    title: t("roles.deleteTitle"),
+    content: t("roles.deleteContent", { name: role.name }),
+    positiveText: t("roles.delete"),
+    negativeText: t("common.cancel"),
     onPositiveClick: async () => {
       try {
         await auth.deleteRole(role.id);
-        message.success("Deleted");
+        message.success(t("roles.deletedToast"));
         await refresh();
       } catch (err) {
         message.error(err instanceof Error ? err.message : String(err));
@@ -210,12 +212,11 @@ function formatWhen(iso: string | null | undefined): string | null {
   <div>
     <div class="page-head">
       <div>
-        <h1>Roles</h1>
+        <h1>{{ t("roles.title") }}</h1>
         <p class="page-sub">
-          Permissions for the UI and admin API. MCP tool access still uses
-          per-user grants (unless a role has <code>mcp:full</code>).
+          {{ t("roles.subtitle") }}
           <template v-if="!loading">
-            · {{ systemCount }} system · {{ customCount }} custom
+            {{ t("roles.counts", { system: systemCount, custom: customCount }) }}
           </template>
         </p>
       </div>
@@ -224,7 +225,7 @@ function formatWhen(iso: string | null | undefined): string | null {
         type="primary"
         @click="openCreate"
       >
-        Add role
+        {{ t("roles.addRole") }}
       </NButton>
     </div>
 
@@ -235,7 +236,7 @@ function formatWhen(iso: string | null | undefined): string | null {
         :class="{ active: typeFilter === 'all' }"
         @click="typeFilter = 'all'"
       >
-        All
+        {{ t("roles.filterAll") }}
       </button>
       <button
         type="button"
@@ -243,7 +244,7 @@ function formatWhen(iso: string | null | undefined): string | null {
         :class="{ active: typeFilter === 'system' }"
         @click="typeFilter = 'system'"
       >
-        System
+        {{ t("roles.filterSystem") }}
       </button>
       <button
         type="button"
@@ -251,18 +252,18 @@ function formatWhen(iso: string | null | undefined): string | null {
         :class="{ active: typeFilter === 'custom' }"
         @click="typeFilter = 'custom'"
       >
-        Custom
+        {{ t("roles.filterCustom") }}
       </button>
     </div>
 
-    <NEmpty v-if="!loading && !roles.length" description="No roles" />
+    <NEmpty v-if="!loading && !roles.length" :description="t('roles.noRoles')" />
     <NEmpty
       v-else-if="!loading && !visibleRoles.length"
-      description="No roles match this filter"
+      :description="t('roles.noMatch')"
       style="margin-top: 1rem"
     >
       <template #extra>
-        <NButton @click="typeFilter = 'all'">Show all</NButton>
+        <NButton @click="typeFilter = 'all'">{{ t("roles.showAll") }}</NButton>
       </template>
     </NEmpty>
 
@@ -285,9 +286,9 @@ function formatWhen(iso: string | null | undefined): string | null {
               type="info"
               :bordered="false"
             >
-              System
+              {{ t("roles.system") }}
             </NTag>
-            <NTag v-else size="small" :bordered="false">Custom</NTag>
+            <NTag v-else size="small" :bordered="false">{{ t("roles.custom") }}</NTag>
           </template>
           <template #description>
             <code class="slug">{{ role.slug }}</code>
@@ -295,11 +296,11 @@ function formatWhen(iso: string | null | undefined): string | null {
 
           <div class="card-body">
             <p class="desc">
-              {{ role.description || "No description" }}
+              {{ role.description || t("roles.noDescription") }}
             </p>
             <NSpace :size="6" class="meta">
               <NTag size="small" :bordered="false">
-                {{ role.permissions.length }} permissions
+                {{ t("roles.permissionsCount", { count: role.permissions.length }) }}
               </NTag>
               <NTag
                 v-if="role.permissions.includes('mcp:full')"
@@ -325,7 +326,7 @@ function formatWhen(iso: string | null | undefined): string | null {
                 size="tiny"
                 :bordered="false"
               >
-                +{{ overflowCount(role) }} more
+                {{ t("roles.more", { count: overflowCount(role) }) }}
               </NTag>
             </div>
             <NText
@@ -333,7 +334,7 @@ function formatWhen(iso: string | null | undefined): string | null {
               depth="3"
               class="dates"
             >
-              Created {{ formatWhen(role.createdAt) }}
+              {{ t("roles.created", { when: formatWhen(role.createdAt) }) }}
             </NText>
           </div>
 
@@ -344,7 +345,7 @@ function formatWhen(iso: string | null | undefined): string | null {
                 size="small"
                 @click="openEdit(role)"
               >
-                Edit
+                {{ t("roles.edit") }}
               </NButton>
               <NButton
                 v-if="auth.can('roles:write') && !role.isSystem"
@@ -353,7 +354,7 @@ function formatWhen(iso: string | null | undefined): string | null {
                 secondary
                 @click="remove(role)"
               >
-                Delete
+                {{ t("roles.delete") }}
               </NButton>
             </NSpace>
           </template>
@@ -364,7 +365,7 @@ function formatWhen(iso: string | null | undefined): string | null {
     <NModal
       v-model:show="modalOpen"
       preset="card"
-      :title="editing ? 'Edit role' : 'Add role'"
+      :title="editing ? t('roles.editRole') : t('roles.addRole')"
       style="width: min(640px, 96vw)"
     >
       <NForm
@@ -373,47 +374,44 @@ function formatWhen(iso: string | null | undefined): string | null {
         class="role-form"
       >
         <section class="form-section">
-          <h3 class="section-title">Details</h3>
+          <h3 class="section-title">{{ t("roles.details") }}</h3>
           <div class="grid-2">
-            <NFormItem v-if="!editing" label="Slug" required>
+            <NFormItem v-if="!editing" :label="t('roles.slug')" required>
               <NInput
                 v-model:value="form.slug"
-                placeholder="operator"
+                :placeholder="t('roles.slugPlaceholder')"
                 :allow-input="(v: string) => !v || /^[a-z0-9_-]*$/.test(v)"
               />
             </NFormItem>
-            <NFormItem v-else label="Slug">
+            <NFormItem v-else :label="t('roles.slug')">
               <NInput :value="form.slug" readonly disabled />
             </NFormItem>
-            <NFormItem label="Name" required>
-              <NInput v-model:value="form.name" placeholder="Operator" />
+            <NFormItem :label="t('roles.name')" required>
+              <NInput v-model:value="form.name" :placeholder="t('roles.namePlaceholder')" />
             </NFormItem>
           </div>
-          <NFormItem label="Description">
+          <NFormItem :label="t('roles.description')">
             <NInput
               v-model:value="form.description"
               type="textarea"
-              placeholder="What this role is for"
+              :placeholder="t('roles.descriptionPlaceholder')"
               :autosize="{ minRows: 2, maxRows: 4 }"
             />
           </NFormItem>
         </section>
 
         <section class="form-section">
-          <h3 class="section-title">Permissions</h3>
+          <h3 class="section-title">{{ t("roles.permissions") }}</h3>
           <NAlert
             v-if="editing?.isSystem"
             type="info"
             :bordered="false"
           >
-            System role permissions are fixed. You can still rename or update
-            the description.
+            {{ t("roles.systemFixed") }}
           </NAlert>
           <template v-else>
             <NText depth="3" class="section-hint">
-              {{ form.permissions.length }} selected · these control the admin
-              UI and API, not MCP tool grants (unless
-              <code>mcp:full</code>).
+              {{ t("roles.selectedHint", { count: form.permissions.length }) }}
             </NText>
             <div class="perm-groups">
               <div
@@ -458,9 +456,9 @@ function formatWhen(iso: string | null | undefined): string | null {
       </NForm>
 
       <div class="modal-footer">
-        <NButton @click="modalOpen = false">Cancel</NButton>
+        <NButton @click="modalOpen = false">{{ t("common.cancel") }}</NButton>
         <NButton type="primary" :loading="saving" @click="save">
-          {{ editing ? "Save changes" : "Create role" }}
+          {{ editing ? t("roles.saveChanges") : t("roles.createRole") }}
         </NButton>
       </div>
     </NModal>

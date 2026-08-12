@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import {
   NAlert,
@@ -26,6 +27,7 @@ import { useServersStore } from "../stores/servers";
 import type { AuthUser, RoleRecord, ScopeGrant, UserRole } from "../types";
 import { scopesSummary } from "../utils/scopes";
 
+const { t } = useI18n();
 const auth = useAuthStore();
 const servers = useServersStore();
 const router = useRouter();
@@ -133,10 +135,10 @@ async function save() {
         grants: selectedRoleHasFullMcp.value ? undefined : form.grants,
         password: form.password || undefined,
       });
-      message.success("User updated");
+      message.success(t("users.updatedToast"));
     } else {
       if (!form.email.trim() || !form.password) {
-        message.warning("Email and password are required");
+        message.warning(t("users.emailPasswordRequired"));
         return;
       }
       await auth.createUser({
@@ -146,13 +148,13 @@ async function save() {
         displayName: form.displayName.trim() || null,
         grants: selectedRoleHasFullMcp.value ? undefined : form.grants,
       });
-      message.success("User created");
+      message.success(t("users.createdToast"));
     }
     modalOpen.value = false;
     await refresh();
     await auth.hydrate();
     if (auth.needsLogin) {
-      message.info("Auth is now required — sign in with an admin account");
+      message.info(t("users.authNowRequired"));
       await router.push({ name: "login" });
     }
   } catch (err) {
@@ -164,14 +166,14 @@ async function save() {
 
 function remove(user: AuthUser) {
   dialog.warning({
-    title: "Delete user?",
-    content: `Delete ${user.email}? Their API keys and sessions will be removed.`,
-    positiveText: "Delete",
-    negativeText: "Cancel",
+    title: t("users.deleteTitle"),
+    content: t("users.deleteContent", { email: user.email }),
+    positiveText: t("users.delete"),
+    negativeText: t("common.cancel"),
     onPositiveClick: async () => {
       try {
         await auth.deleteUser(user.id);
-        message.success("Deleted");
+        message.success(t("users.deletedToast"));
         await refresh();
       } catch (err) {
         message.error(err instanceof Error ? err.message : String(err));
@@ -185,16 +187,16 @@ function roleName(slug: string): string {
 }
 
 function grantTags(user: AuthUser): string[] {
-  if (user.permissions?.includes("mcp:full")) return ["full access"];
-  if (!user.grants.length) return ["no grants"];
+  if (user.permissions?.includes("mcp:full")) return [t("users.fullAccess")];
+  if (!user.grants.length) return [t("users.noGrants")];
   return user.grants.map((g) =>
-    `${g.serverId}:${g.tools.includes("*") ? "*" : g.tools.length + " tools"}`,
+    `${g.serverId}:${g.tools.includes("*") ? "*" : t("users.toolsCount", { count: g.tools.length })}`,
   );
 }
 
 function grantsLabel(user: AuthUser): string {
-  if (user.permissions?.includes("mcp:full")) return "Full MCP access";
-  if (!user.grants.length) return "No tool grants";
+  if (user.permissions?.includes("mcp:full")) return t("users.fullMcpAccess");
+  if (!user.grants.length) return t("users.noToolGrants");
   return `${scopesSummary(user.grants)} — ${
     user.grants
       .map((g) =>
@@ -226,19 +228,18 @@ function isSelf(user: AuthUser): boolean {
   <div>
     <div class="page-head">
       <div>
-        <h1>Users</h1>
+        <h1>{{ t("users.title") }}</h1>
         <p class="page-sub">
-          Admins manage the host. Users get server/tool grants and create their
-          own keys.
+          {{ t("users.subtitle") }}
           <template v-if="!loading">
-            · {{ activeCount }} active
+            {{ t("users.counts", { active: activeCount }) }}
             <template v-if="disabledCount">
-              · {{ disabledCount }} disabled
+              {{ t("users.countsDisabled", { disabled: disabledCount }) }}
             </template>
           </template>
         </p>
       </div>
-      <NButton type="primary" @click="openCreate">Add user</NButton>
+      <NButton type="primary" @click="openCreate">{{ t("users.addUser") }}</NButton>
     </div>
 
     <div class="filters">
@@ -248,7 +249,7 @@ function isSelf(user: AuthUser): boolean {
         :class="{ active: statusFilter === 'active' }"
         @click="statusFilter = 'active'"
       >
-        Active
+        {{ t("users.filterActive") }}
       </button>
       <button
         type="button"
@@ -256,7 +257,7 @@ function isSelf(user: AuthUser): boolean {
         :class="{ active: statusFilter === 'disabled' }"
         @click="statusFilter = 'disabled'"
       >
-        Disabled
+        {{ t("users.filterDisabled") }}
       </button>
       <button
         type="button"
@@ -264,22 +265,22 @@ function isSelf(user: AuthUser): boolean {
         :class="{ active: statusFilter === 'all' }"
         @click="statusFilter = 'all'"
       >
-        All
+        {{ t("users.filterAll") }}
       </button>
     </div>
 
-    <NEmpty v-if="!loading && !users.length" description="No users" />
+    <NEmpty v-if="!loading && !users.length" :description="t('users.noUsers')" />
     <NEmpty
       v-else-if="!loading && !visibleUsers.length"
       :description="
         statusFilter === 'disabled'
-          ? 'No disabled users'
-          : 'No active users'
+          ? t('users.noDisabledUsers')
+          : t('users.noActiveUsers')
       "
       style="margin-top: 1rem"
     >
       <template v-if="statusFilter !== 'all'" #extra>
-        <NButton @click="statusFilter = 'all'">Show all</NButton>
+        <NButton @click="statusFilter = 'all'">{{ t("users.showAll") }}</NButton>
       </template>
     </NEmpty>
 
@@ -302,7 +303,7 @@ function isSelf(user: AuthUser): boolean {
                 :bordered="false"
                 style="margin-left: 0.4rem; vertical-align: middle"
               >
-                you
+                {{ t("users.you") }}
               </NTag>
             </span>
           </template>
@@ -313,10 +314,10 @@ function isSelf(user: AuthUser): boolean {
               type="error"
               :bordered="false"
             >
-              Disabled
+              {{ t("users.disabled") }}
             </NTag>
             <NTag v-else size="small" type="success" :bordered="false">
-              Active
+              {{ t("users.active") }}
             </NTag>
           </template>
           <template #description>
@@ -346,21 +347,21 @@ function isSelf(user: AuthUser): boolean {
             <NText depth="3" class="grants">{{ grantsLabel(u) }}</NText>
             <div class="dates">
               <NText v-if="formatWhen(u.createdAt)" depth="3">
-                Created {{ formatWhen(u.createdAt) }}
+                {{ t("users.created", { when: formatWhen(u.createdAt) }) }}
               </NText>
               <NText
                 v-if="formatWhen(u.updatedAt)"
                 depth="3"
                 class="detail-sep"
               >
-                · Updated {{ formatWhen(u.updatedAt) }}
+                {{ t("users.updated", { when: formatWhen(u.updatedAt) }) }}
               </NText>
             </div>
           </div>
 
           <template #action>
             <NSpace class="card-actions">
-              <NButton size="small" @click="openEdit(u)">Edit</NButton>
+              <NButton size="small" @click="openEdit(u)">{{ t("users.edit") }}</NButton>
               <NButton
                 size="small"
                 type="error"
@@ -368,7 +369,7 @@ function isSelf(user: AuthUser): boolean {
                 :disabled="isSelf(u)"
                 @click="remove(u)"
               >
-                Delete
+                {{ t("users.delete") }}
               </NButton>
             </NSpace>
           </template>
@@ -379,7 +380,7 @@ function isSelf(user: AuthUser): boolean {
     <NModal
       v-model:show="modalOpen"
       preset="card"
-      :title="editing ? 'Edit user' : 'Add user'"
+      :title="editing ? t('users.editUser') : t('users.addUser')"
       class="user-modal"
       style="width: min(640px, 96vw)"
     >
@@ -389,45 +390,45 @@ function isSelf(user: AuthUser): boolean {
         class="user-form"
       >
         <section class="form-section">
-          <h3 class="section-title">Account</h3>
-          <NFormItem v-if="editing" label="Email">
+          <h3 class="section-title">{{ t("users.account") }}</h3>
+          <NFormItem v-if="editing" :label="t('users.email')">
             <NInput :value="form.email" readonly disabled />
           </NFormItem>
-          <NFormItem v-else label="Email" required>
+          <NFormItem v-else :label="t('users.email')" required>
             <NInput
               v-model:value="form.email"
-              placeholder="user@example.com"
+              :placeholder="t('users.emailPlaceholder')"
               autocomplete="off"
             />
           </NFormItem>
 
           <div class="grid-2">
-            <NFormItem label="Display name">
+            <NFormItem :label="t('users.displayName')">
               <NInput
                 v-model:value="form.displayName"
-                placeholder="Optional"
+                :placeholder="t('users.optional')"
               />
             </NFormItem>
-            <NFormItem label="Role" required>
+            <NFormItem :label="t('users.role')" required>
               <NSelect v-model:value="form.role" :options="roleOptions" />
             </NFormItem>
           </div>
 
-          <NFormItem :label="editing ? 'New password' : 'Password'" :required="!editing">
+          <NFormItem :label="editing ? t('users.newPassword') : t('users.password')" :required="!editing">
             <NInput
               v-model:value="form.password"
               type="password"
               show-password-on="click"
-              :placeholder="editing ? 'Leave blank to keep current' : 'Required'"
+              :placeholder="editing ? t('users.passwordKeep') : t('users.passwordRequired')"
               autocomplete="new-password"
             />
           </NFormItem>
 
           <div v-if="editing" class="disabled-row">
             <div>
-              <div class="disabled-label">Disabled</div>
+              <div class="disabled-label">{{ t("users.disabledLabel") }}</div>
               <NText depth="3" class="disabled-hint">
-                Disabled users cannot sign in or use API keys.
+                {{ t("users.disabledHint") }}
               </NText>
             </div>
             <NSwitch v-model:value="form.disabled" />
@@ -435,11 +436,10 @@ function isSelf(user: AuthUser): boolean {
         </section>
 
         <section class="form-section">
-          <h3 class="section-title">Access</h3>
+          <h3 class="section-title">{{ t("users.access") }}</h3>
           <template v-if="!selectedRoleHasFullMcp">
             <NText depth="3" class="section-hint">
-              Server and tool grants become the ceiling for this user’s personal
-              API keys.
+              {{ t("users.grantsHint") }}
             </NText>
             <ScopeEditor
               v-model="form.grants"
@@ -449,21 +449,20 @@ function isSelf(user: AuthUser): boolean {
             <GrantsCeilingHint
               compact
               :grants="form.grants"
-              label="This user will be able to reach"
+              :label="t('users.userWillReach')"
               style="margin-top: 0.75rem"
             />
           </template>
           <NAlert v-else type="info" :bordered="false">
-            This role includes <code>mcp:full</code>, so tool grants are not
-            required — the user has a full MCP ceiling.
+            {{ t("users.fullMcpAlert") }}
           </NAlert>
         </section>
       </NForm>
 
       <div class="modal-footer">
-        <NButton @click="modalOpen = false">Cancel</NButton>
+        <NButton @click="modalOpen = false">{{ t("common.cancel") }}</NButton>
         <NButton type="primary" :loading="saving" @click="save">
-          {{ editing ? "Save changes" : "Create user" }}
+          {{ editing ? t("users.saveChanges") : t("users.createUser") }}
         </NButton>
       </div>
     </NModal>

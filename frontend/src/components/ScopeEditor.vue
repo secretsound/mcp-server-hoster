@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import {
   NButton,
   NCheckbox,
@@ -10,6 +11,8 @@ import {
 } from "naive-ui";
 import { api } from "../api/client";
 import type { ScopeGrant, ToolInfo } from "../types";
+
+const { t } = useI18n();
 
 const props = withDefaults(
   defineProps<{
@@ -90,7 +93,7 @@ const selectableServers = computed(() => {
     value: s.id,
   }));
   if (props.allowWildcard) {
-    opts.unshift({ label: "All servers (*)", value: "*" });
+    opts.unshift({ label: t("scopes.allServers"), value: "*" });
   }
   if (props.ceiling?.length) {
     if (props.ceiling.some((g) => g.serverId === "*")) return opts;
@@ -321,7 +324,9 @@ function setPrefix(idx: number, prefixTools: string[], on: boolean) {
 }
 
 function formatGrant(g: ScopeGrant): string {
-  const tools = g.tools.includes("*") ? "all tools" : g.tools.join(", ") || "none";
+  const tools = g.tools.includes("*")
+    ? t("scopes.allToolsLabel")
+    : g.tools.join(", ") || t("scopes.none");
   return `${g.serverId}: ${tools}`;
 }
 </script>
@@ -329,13 +334,13 @@ function formatGrant(g: ScopeGrant): string {
 <template>
   <div class="scope-editor">
     <div v-if="!modelValue.length" class="empty">
-      <NText depth="3">No server scopes yet — add one to grant access.</NText>
+      <NText depth="3">{{ t("scopes.empty") }}</NText>
     </div>
 
     <div v-for="(grant, idx) in modelValue" :key="idx" class="row">
       <div class="row-head">
         <div class="row-title">
-          <NText depth="3" class="row-label">Server</NText>
+          <NText depth="3" class="row-label">{{ t("scopes.server") }}</NText>
           <NSelect
             :value="grant.serverId"
             :options="selectableServers"
@@ -352,7 +357,7 @@ function formatGrant(g: ScopeGrant): string {
           :disabled="disabled"
           @click="removeRow(idx)"
         >
-          Remove
+          {{ t("scopes.remove") }}
         </NButton>
       </div>
 
@@ -363,7 +368,7 @@ function formatGrant(g: ScopeGrant): string {
           :disabled="disabled"
           @update:checked="(v: boolean) => setAllTools(idx, v)"
         >
-          All tools on this server
+          {{ t("scopes.allTools") }}
         </NCheckbox>
 
         <div
@@ -371,17 +376,17 @@ function formatGrant(g: ScopeGrant): string {
           class="tools"
         >
           <NText v-if="loadingTools[grant.serverId]" depth="3">
-            Loading tools…
+            {{ t("scopes.loadingTools") }}
           </NText>
           <NText v-else-if="!toolChoices(grant.serverId).length" depth="3">
-            No tools available for this server yet.
+            {{ t("scopes.noTools") }}
           </NText>
           <template v-else>
             <div
               v-if="toolsByPrefix(grant.serverId).length > 1"
               class="prefix-bar"
             >
-              <NText depth="3" class="prefix-label">Quick select</NText>
+              <NText depth="3" class="prefix-label">{{ t("scopes.quickSelect") }}</NText>
               <NSpace :size="8" :wrap="true">
                 <NCheckbox
                   v-for="group in toolsByPrefix(grant.serverId)"
@@ -391,7 +396,7 @@ function formatGrant(g: ScopeGrant): string {
                   :disabled="disabled"
                   @update:checked="(v: boolean) => setPrefix(idx, group.tools, v)"
                 >
-                  All {{ group.prefix }}
+                  {{ t("scopes.allPrefix", { prefix: group.prefix }) }}
                   <NText depth="3">({{ group.tools.length }})</NText>
                 </NCheckbox>
               </NSpace>
@@ -430,7 +435,7 @@ function formatGrant(g: ScopeGrant): string {
       :disabled="disabled || !selectableServers.length"
       @click="addRow"
     >
-      Add server scope
+      {{ t("scopes.addServerScope") }}
     </NButton>
   </div>
 </template>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import {
   NAlert,
   NButton,
@@ -19,7 +20,9 @@ import {
   useMessage,
 } from "naive-ui";
 import { api, getSessionToken } from "../api/client";
+import type { AppLocale } from "../i18n";
 import { useAuthStore } from "../stores/auth";
+import { useLocaleStore } from "../stores/locale";
 import { useServersStore } from "../stores/servers";
 import { useSettingsStore } from "../stores/settings";
 import type { HealthResponse } from "../types";
@@ -64,8 +67,10 @@ type DatabaseInfo = {
   counts: Record<string, number>;
 };
 
+const { t } = useI18n();
 const servers = useServersStore();
 const auth = useAuthStore();
+const localeStore = useLocaleStore();
 const settingsStore = useSettingsStore();
 const message = useMessage();
 const loading = ref(true);
@@ -102,12 +107,12 @@ const sandboxActive = ref<{
   detail: string | null;
 } | null>(null);
 
-const sandboxModeOptions = [
-  { label: "Auto (bwrap → landlock → none)", value: "auto" },
-  { label: "Bubblewrap", value: "bwrap" },
-  { label: "Landlock", value: "landlock" },
-  { label: "None (soft isolation only)", value: "none" },
-];
+const sandboxModeOptions = computed(() => [
+  { label: t("settings.sandboxAuto"), value: "auto" },
+  { label: t("settings.sandboxBwrap"), value: "bwrap" },
+  { label: t("settings.sandboxLandlock"), value: "landlock" },
+  { label: t("settings.sandboxNone"), value: "none" },
+]);
 
 const oauth = reactive({
   publicUrl: "",
@@ -120,27 +125,161 @@ const oauth = reactive({
 });
 
 const roleOptions = ref<Array<{ label: string; value: string }>>([
-  { label: "User", value: "user" },
-  { label: "Admin", value: "admin" },
+  { label: t("settings.roleUser"), value: "user" },
+  { label: t("settings.roleAdmin"), value: "admin" },
 ]);
 
 const oauthError = ref("");
 const activeTab = ref("general");
+const authSubTab = ref("oidc");
 const exporting = ref(false);
 const restoring = ref(false);
 const migrating = ref(false);
 const restarting = ref(false);
-const migrateUrl = ref("");
+const migrate = reactive({
+  host: "localhost",
+  port: 5432,
+  database: "mcp_hoster",
+  username: "",
+  password: "",
+  sslMode: "prefer",
+});
 const confirmWipe = ref(false);
-const sessions = ref<
-  Array<{ id: string; createdAt: string; expiresAt: string; current: boolean }>
->([]);
-const sessionsLoading = ref(false);
-const revokingSessions = ref(false);
+
+const sslModeOptions = [
+  { label: "prefer", value: "prefer" },
+  { label: "require", value: "require" },
+  { label: "verify-full", value: "verify-full" },
+  { label: "allow", value: "allow" },
+  { label: "disable", value: "disable" },
+];
+
+function buildPostgresUrl(parts: {
+  host: string;
+  port: number;
+  database: string;
+  username: string;
+  password: string;
+  sslMode: string;
+}): string {
+  const user = encodeURIComponent(parts.username.trim());
+  const pass = encodeURIComponent(parts.password);
+  const host = parts.host.trim() || "localhost";
+  const port = Number.isFinite(parts.port) && parts.port > 0
+    ? Math.trunc(parts.port)
+    : 5432;
+  const db = parts.database.trim().replace(/^\/+/, "") || "mcp_hoster";
+  const auth = parts.password !== ""
+    ? `${user}:${pass}@`
+    : user
+    ? `${user}@`
+    : "";
+  const ssl = parts.sslMode
+    ? `?sslmode=${encodeURIComponent(parts.sslMode)}`
+    : "";
+  return `postgres://${auth}${host}:${port}/${db}${ssl}`;
+}
+
+function parsePostgresUrl(raw: string): Partial<typeof migrate> | null {
+  const trimmed = raw.trim();
+  if (!/^postgres(ql)?:\/\//i.test(trimmed)) return null;
+  try {
+    const u = new URL(trimmed.replace(/^postgres(ql)?:/i, "http:"));
+    const sslMode = u.searchParams.get("sslmode") || "prefer";
+    return {
+      host: u.hostname || "localhost",
+      port: u.port ? Number(u.port) : 5432,
+      database: decodeURIComponent(u.pathname.replace(/^\/+/, "")) ||
+        "mcp_hoster",
+      username: decodeURIComponent(u.username || ""),
+      password: decodeURIComponent(u.password || ""),
+      sslMode: ["prefer", "require", "verify-full", "allow", "disable"]
+          .includes(sslMode)
+        ? sslMode
+        : "prefer",
+    };
+  } catch {
+    return null;
+  }
+}
+
+const migrateUrlPreview = computed(() => {
+  const url = buildPostgresUrl(migrate);
+  return url.replace(/:([^:@/]+)@/, ":***@");
+});
+
+const saml = reactive({
+  enabled: false,
+  idpEntityId: "",
+  ssoUrl: "",
+  certificate: "",
+  emailAttribute: "email",
+});
+
+const scim = reactive({
+  enabled: false,
+  bearerToken: "",
+  /** True when a token is already stored (value may be blank in the form). */
+  hasToken: false,
+});
+
+const savingAuth = ref(false);
 
 const healthWarnings = computed(() =>
   (health.value?.checks || []).filter((c) => !c.ok),
 );
+
+const publicOrigin = computed(() =>
+  (general.publicUrl || oauth.publicUrl || window.location.origin).replace(
+    /\/$/,
+    "",
+  )
+);
+
+const oidcCallbackUrl = computed(() =>
+  `${publicOrigin.value}/api/auth/oauth/oidc/callback`
+);
+
+const samlAcsUrl = computed(() =>
+  `${publicOrigin.value}/api/auth/saml/acs`
+);
+
+const scimBaseUrl = computed(() => `${publicOrigin.value}/scim/v2`);
+
+const oidcProvider = computed(() =>
+  oauth.providers.find((p) => p.id === "oidc") ?? null
+);
+
+const tableOverview = computed(() => {
+  const counts = database.value?.counts || {};
+  const names = Object.keys(counts);
+  if (!names.length) return t("settings.noTables");
+  const rows = names.reduce((sum, name) => sum + Number(counts[name] || 0), 0);
+  return t("settings.tablesOverview", {
+    tables: names.length,
+    rows: rows.toLocaleString(),
+  });
+});
+
+const migrationOverview = computed(() => {
+  const migrations = database.value?.migrations || [];
+  if (!migrations.length) return t("settings.noneRecorded");
+  const latest = migrations[migrations.length - 1];
+  const when = latest?.appliedAt
+    ? new Date(latest.appliedAt).toLocaleString()
+    : "";
+  if (when) {
+    return t("settings.migrationsOverviewWhen", {
+      count: migrations.length,
+      version: latest.version,
+      when,
+    });
+  }
+  return t("settings.migrationsOverview", {
+    count: migrations.length,
+    version: latest.version,
+  });
+});
 
 const needsPublicUrl = computed(() =>
   healthWarnings.value.some((c) => c.id === "oauth_public_url"),
@@ -199,7 +338,6 @@ onMounted(async () => {
       }
       await reloadDatabase();
     }
-    await loadSessions();
   } catch (err) {
     loadError.value = err instanceof Error ? err.message : String(err);
   } finally {
@@ -223,9 +361,18 @@ function applySettingsMap(s: Record<string, string>) {
     mode === "bwrap" || mode === "landlock" || mode === "none" || mode === "auto"
       ? mode
       : "auto";
-  migrateUrl.value = s["host.database_url"]?.startsWith("postgres")
-    ? s["host.database_url"]
-    : migrateUrl.value || "postgres://user:pass@localhost:5432/mcp_hoster";
+  if (s["host.database_url"]?.startsWith("postgres")) {
+    const parsed = parsePostgresUrl(s["host.database_url"]);
+    if (parsed) Object.assign(migrate, parsed);
+  }
+  saml.enabled = s["auth.saml_enabled"] === "true";
+  saml.idpEntityId = s["auth.saml_idp_entity_id"] || "";
+  saml.ssoUrl = s["auth.saml_sso_url"] || "";
+  saml.certificate = s["auth.saml_certificate"] || "";
+  saml.emailAttribute = s["auth.saml_email_attribute"] || "email";
+  scim.enabled = s["auth.scim_enabled"] === "true";
+  scim.hasToken = Boolean(s["auth.scim_bearer_token"]);
+  scim.bearerToken = "";
   settingsStore.applyLocal({
     displayName: general.displayName,
     defaultLogTail: general.logTail,
@@ -249,6 +396,22 @@ function applyOauth(data: OAuthSettings) {
     clientSecret: "",
     scopesText: p.scopes.join(" "),
   }));
+  if (!oauth.providers.some((p) => p.id === "oidc")) {
+    oauth.providers.push({
+      id: "oidc",
+      enabled: false,
+      label: "OIDC",
+      clientId: "",
+      hasClientSecret: false,
+      issuer: null,
+      authorizationEndpoint: null,
+      tokenEndpoint: null,
+      userinfoEndpoint: null,
+      scopes: ["openid", "email", "profile"],
+      clientSecret: "",
+      scopesText: "openid email profile",
+    });
+  }
 }
 
 async function reloadDatabase() {
@@ -279,12 +442,12 @@ async function putSettings(body: Record<string, string>, which: "general" | "hos
     if (res.sandbox) sandboxActive.value = res.sandbox;
     if (res.restartRequired || res.pendingBootstrap?.pending) {
       restartRequired.value = true;
-      message.warning("Saved — restart the host to apply pending changes");
+      message.warning(t("settings.savedRestart"));
     } else {
       message.success(
         res.sandbox
-          ? `Saved (sandbox active: ${res.sandbox.active})`
-          : "Saved",
+          ? t("settings.savedSandbox", { active: res.sandbox.active })
+          : t("settings.saved"),
       );
     }
     health.value = await api<HealthResponse>("/health");
@@ -301,12 +464,17 @@ async function saveGeneral() {
     "host.display_name": general.displayName,
     "ui.default_log_tail": String(general.logTail),
     "host.notes": general.notes,
-    "host.public_url": general.publicUrl,
-    "host.gateway_public_url": general.gatewayPublicUrl,
   }, "general");
 }
 
 async function saveHost() {
+  const siteUrl = general.publicUrl.trim().replace(/\/$/, "");
+  let gatewayUrl = general.gatewayPublicUrl.trim().replace(/\/$/, "");
+  // One site URL is enough for most installs — derive /mcp when gateway is blank.
+  if (siteUrl && !gatewayUrl) {
+    gatewayUrl = `${siteUrl}/mcp`;
+    general.gatewayPublicUrl = gatewayUrl;
+  }
   await putSettings({
     "host.bind": host.bind,
     "host.port": String(host.port),
@@ -314,42 +482,87 @@ async function saveHost() {
     "host.sandbox_mode": host.sandboxMode,
     "host.auth_disabled": host.authDisabled ? "true" : "false",
     "host.auth_allow_open": host.authAllowOpen ? "true" : "false",
+    "host.public_url": siteUrl,
+    "host.gateway_public_url": gatewayUrl,
   }, "host");
 }
 
-async function saveOauth() {
+function generateScimToken() {
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+  scim.bearerToken = Array.from(
+    bytes,
+    (b) => b.toString(16).padStart(2, "0"),
+  ).join("");
+}
+
+async function saveAuth() {
+  if (!auth.can("settings:write")) return;
+  const oidc = oidcProvider.value;
+  if (!oidc) {
+    message.error(t("settings.oidcUnavailable"));
+    return;
+  }
+  savingAuth.value = true;
   savingOauth.value = true;
   try {
+    const settingsBody: Record<string, string> = {
+      "auth.saml_enabled": saml.enabled ? "true" : "false",
+      "auth.saml_idp_entity_id": saml.idpEntityId.trim(),
+      "auth.saml_sso_url": saml.ssoUrl.trim(),
+      "auth.saml_certificate": saml.certificate.trim(),
+      "auth.saml_email_attribute": saml.emailAttribute.trim() || "email",
+      "auth.scim_enabled": scim.enabled ? "true" : "false",
+    };
+    if (scim.bearerToken.trim()) {
+      settingsBody["auth.scim_bearer_token"] = scim.bearerToken.trim();
+    }
+
+    await api("/api/settings", {
+      method: "PUT",
+      body: JSON.stringify(settingsBody),
+    });
+
     const { oauth: updated } = await api<{ oauth: OAuthSettings }>(
       "/api/auth/oauth/settings",
       {
         method: "PUT",
         body: JSON.stringify({
-          publicUrl: oauth.publicUrl.trim() || null,
+          // Public URL is owned by General settings.
+          publicUrl: general.publicUrl.trim() || null,
           autoProvision: oauth.autoProvision,
           defaultRole: oauth.defaultRole,
-          providers: oauth.providers.map((p) => ({
-            id: p.id,
-            enabled: p.enabled,
-            label: p.label,
-            clientId: p.clientId,
-            clientSecret: p.clientSecret || undefined,
-            issuer: p.issuer,
-            authorizationEndpoint: p.authorizationEndpoint,
-            tokenEndpoint: p.tokenEndpoint,
-            userinfoEndpoint: p.userinfoEndpoint,
-            scopes: p.scopesText.split(/\s+/).filter(Boolean),
-          })),
+          providers: [
+            {
+              id: "oidc",
+              enabled: oidc.enabled,
+              label: oidc.label || "OIDC",
+              clientId: oidc.clientId,
+              clientSecret: oidc.clientSecret || undefined,
+              issuer: oidc.issuer,
+              authorizationEndpoint: oidc.authorizationEndpoint,
+              tokenEndpoint: oidc.tokenEndpoint,
+              userinfoEndpoint: oidc.userinfoEndpoint,
+              scopes: oidc.scopesText.split(/\s+/).filter(Boolean),
+            },
+            // Social IdPs are hidden for now — keep them off.
+            { id: "google", enabled: false },
+            { id: "github", enabled: false },
+          ],
         }),
       },
     );
     applyOauth(updated);
-    general.publicUrl = updated.publicUrl ?? general.publicUrl;
-    message.success("OAuth settings saved");
+
+    const settingsRes = await api<{ settings: Record<string, string> }>(
+      "/api/settings",
+    );
+    applySettingsMap(settingsRes.settings || {});
+    message.success(t("settings.authSaved"));
     health.value = await api<HealthResponse>("/health");
   } catch (err) {
     message.error(err instanceof Error ? err.message : String(err));
   } finally {
+    savingAuth.value = false;
     savingOauth.value = false;
   }
 }
@@ -367,7 +580,7 @@ async function downloadBackup() {
     const res = await fetch("/api/database/backup", { headers });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      throw new Error(body.error || `Backup failed (${res.status})`);
+      throw new Error(body.error || t("settings.backupFailed", { status: res.status }));
     }
     const blob = await res.blob();
     const disp = res.headers.get("Content-Disposition") || "";
@@ -379,7 +592,7 @@ async function downloadBackup() {
     a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
-    message.success("Backup downloaded");
+    message.success(t("settings.backupDownloaded"));
   } catch (err) {
     message.error(err instanceof Error ? err.message : String(err));
   } finally {
@@ -405,9 +618,11 @@ async function uploadRestore(ev: Event) {
       body: await file.arrayBuffer(),
     });
     const body = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(body.error || `Restore failed (${res.status})`);
+    if (!res.ok) {
+      throw new Error(body.error || t("settings.restoreFailed", { status: res.status }));
+    }
     restartRequired.value = true;
-    message.warning(body.message || "Restore staged — restart the host");
+    message.warning(body.message || t("settings.restoreStaged"));
   } catch (err) {
     message.error(err instanceof Error ? err.message : String(err));
   } finally {
@@ -416,8 +631,16 @@ async function uploadRestore(ev: Event) {
 }
 
 async function runMigrate() {
-  if (!migrateUrl.value.trim()) {
-    message.error("Enter a Postgres database URL");
+  if (!migrate.host.trim()) {
+    message.error(t("settings.enterPgHost"));
+    return;
+  }
+  if (!migrate.database.trim()) {
+    message.error(t("settings.enterDbName"));
+    return;
+  }
+  if (!migrate.username.trim()) {
+    message.error(t("settings.enterPgUser"));
     return;
   }
   migrating.value = true;
@@ -430,15 +653,13 @@ async function runMigrate() {
     }>("/api/database/migrate", {
       method: "POST",
       body: JSON.stringify({
-        databaseUrl: migrateUrl.value.trim(),
+        databaseUrl: buildPostgresUrl(migrate),
         confirmWipe: confirmWipe.value,
       }),
     });
     restartRequired.value = true;
     const tableCount = Object.keys(res.counts || {}).length;
-    message.success(
-      `Migrated ${tableCount} tables to Postgres. Restart the host to switch.`,
-    );
+    message.success(t("settings.migrated", { count: tableCount }));
     await reloadDatabase();
   } catch (err) {
     message.error(err instanceof Error ? err.message : String(err));
@@ -451,7 +672,7 @@ async function requestRestart() {
   restarting.value = true;
   try {
     await api("/api/host/restart", { method: "POST", body: "{}" });
-    message.info("Host is restarting…");
+    message.info(t("settings.hostRestarting"));
   } catch (err) {
     message.error(err instanceof Error ? err.message : String(err));
   } finally {
@@ -459,49 +680,14 @@ async function requestRestart() {
   }
 }
 
-async function loadSessions() {
-  if (!auth.isAuthenticated) return;
-  sessionsLoading.value = true;
-  try {
-    const res = await auth.listSessions();
-    sessions.value = res.sessions ?? [];
-  } catch {
-    sessions.value = [];
-  } finally {
-    sessionsLoading.value = false;
-  }
-}
-
-async function revokeOtherSessions() {
-  revokingSessions.value = true;
-  try {
-    await auth.revokeOtherSessions();
-    message.success("Other sessions revoked");
-    await loadSessions();
-  } catch (err) {
-    message.error(err instanceof Error ? err.message : String(err));
-  } finally {
-    revokingSessions.value = false;
-  }
-}
-
-async function revokeOneSession(id: string) {
-  try {
-    await auth.revokeSession(id);
-    message.success("Session revoked");
-    await loadSessions();
-  } catch (err) {
-    message.error(err instanceof Error ? err.message : String(err));
-  }
-}
 </script>
 
 <template>
   <div>
     <div class="page-head">
       <div>
-        <h1>Settings</h1>
-        <p class="page-sub">Host configuration, database, and authentication</p>
+        <h1>{{ t("settings.title") }}</h1>
+        <p class="page-sub">{{ t("settings.subtitle") }}</p>
       </div>
     </div>
 
@@ -516,9 +702,9 @@ async function revokeOneSession(id: string) {
       >
         <div class="restart-banner">
           <span>
-            Some settings are pending until the host restarts
+            {{ t("settings.restartPending") }}
             <template v-if="database?.pendingBootstrap?.pending">
-              (bootstrap file differs from the live process).
+              {{ t("settings.restartBootstrap") }}
             </template>
           </span>
           <NButton
@@ -528,18 +714,18 @@ async function revokeOneSession(id: string) {
             :loading="restarting"
             @click="requestRestart"
           >
-            Restart host
+            {{ t("settings.restartHost") }}
           </NButton>
         </div>
       </NAlert>
 
       <NTabs v-if="!loadError" v-model:value="activeTab" type="line" animated>
-        <NTabPane name="general" tab="General">
+        <NTabPane name="general" :tab="t('settings.tabGeneral')">
           <div class="tab-body">
             <NCard
               v-if="healthWarnings.length"
               size="small"
-              title="Health checks"
+              :title="t('settings.healthChecks')"
               style="margin-bottom: 1rem"
             >
               <div class="checks">
@@ -561,15 +747,22 @@ async function revokeOneSession(id: string) {
             </NCard>
 
             <div class="split-2">
-              <NCard size="small" title="Appearance & URLs">
+              <NCard size="small" :title="t('settings.appearance')">
                 <NForm label-placement="top">
-                  <NFormItem label="Display name">
+                  <NFormItem :label="t('settings.displayName')">
                     <NInput
                       v-model:value="general.displayName"
                       :disabled="!auth.can('settings:write')"
                     />
                   </NFormItem>
-                  <NFormItem label="Default log tail">
+                  <NFormItem :label="t('settings.language')">
+                    <NSelect
+                      :value="localeStore.locale"
+                      :options="localeStore.options"
+                      @update:value="(v: AppLocale) => localeStore.setLocale(v)"
+                    />
+                  </NFormItem>
+                  <NFormItem :label="t('settings.defaultLogTail')">
                     <NInputNumber
                       v-model:value="general.logTail"
                       :min="50"
@@ -578,44 +771,11 @@ async function revokeOneSession(id: string) {
                       :disabled="!auth.can('settings:write')"
                     />
                   </NFormItem>
-                  <NFormItem label="Notes">
+                  <NFormItem :label="t('settings.notes')">
                     <NInput
                       v-model:value="general.notes"
                       type="textarea"
                       :autosize="{ minRows: 3, maxRows: 8 }"
-                      :disabled="!auth.can('settings:write')"
-                    />
-                  </NFormItem>
-                  <NFormItem label="Public URL">
-                    <NSpace vertical style="width: 100%">
-                      <NAlert
-                        v-if="needsPublicUrl"
-                        type="error"
-                        :bordered="false"
-                      >
-                        OAuth needs a public URL for browser sign-in.
-                      </NAlert>
-                      <NSpace>
-                        <NInput
-                          v-model:value="general.publicUrl"
-                          placeholder="https://mcp.example.com"
-                          style="min-width: min(320px, 60vw)"
-                          :disabled="!auth.can('settings:write')"
-                        />
-                        <NButton
-                          quaternary
-                          :disabled="!auth.can('settings:write')"
-                          @click="general.publicUrl = suggestedPublicUrl()"
-                        >
-                          Use this origin
-                        </NButton>
-                      </NSpace>
-                    </NSpace>
-                  </NFormItem>
-                  <NFormItem label="Gateway public URL">
-                    <NInput
-                      v-model:value="general.gatewayPublicUrl"
-                      placeholder="https://mcp.example.com/mcp"
                       :disabled="!auth.can('settings:write')"
                     />
                   </NFormItem>
@@ -625,20 +785,20 @@ async function revokeOneSession(id: string) {
                     :disabled="!auth.can('settings:write')"
                     @click="saveGeneral"
                   >
-                    Save general
+                    {{ t("settings.saveGeneral") }}
                   </NButton>
                 </NForm>
               </NCard>
 
-              <NCard size="small" title="Runtime">
+              <NCard size="small" :title="t('settings.runtime')">
                 <table class="runtime">
                   <tbody>
                     <tr>
-                      <th>Gateway</th>
+                      <th>{{ t("settings.gateway") }}</th>
                       <td><code>{{ servers.gatewayUrl }}</code></td>
                     </tr>
                     <tr>
-                      <th>Public URL</th>
+                      <th>{{ t("settings.siteUrl") }}</th>
                       <td>
                         <code>{{
                           health?.publicUrl || general.publicUrl || "—"
@@ -646,7 +806,7 @@ async function revokeOneSession(id: string) {
                       </td>
                     </tr>
                     <tr>
-                      <th>Listen</th>
+                      <th>{{ t("settings.listen") }}</th>
                       <td>
                         <code>
                           {{ health?.bind || host.bind }}:{{
@@ -656,23 +816,23 @@ async function revokeOneSession(id: string) {
                       </td>
                     </tr>
                     <tr>
-                      <th>Database</th>
+                      <th>{{ t("settings.database") }}</th>
                       <td><code>{{ health?.database || "—" }}</code></td>
                     </tr>
                     <tr>
-                      <th>Auth</th>
+                      <th>{{ t("settings.auth") }}</th>
                       <td>
                         {{
                           authRequired
-                            ? "Required"
+                            ? t("settings.authRequired")
                             : host.authDisabled
-                            ? "Disabled"
-                            : "Open until first user"
+                            ? t("settings.authDisabled")
+                            : t("settings.authOpenUntilFirst")
                         }}
                       </td>
                     </tr>
                     <tr>
-                      <th>Sandbox</th>
+                      <th>{{ t("settings.sandbox") }}</th>
                       <td>
                         <code>{{
                           health?.sandboxRequested || host.sandboxMode
@@ -690,25 +850,24 @@ async function revokeOneSession(id: string) {
           </div>
         </NTabPane>
 
-        <NTabPane name="host" tab="Host">
-          <div class="tab-body">
-            <NCard size="small" title="Process & listen">
+        <NTabPane name="host" :tab="t('settings.tabHost')">
+          <div class="tab-body host-stack">
+            <NCard size="small" :title="t('settings.listenCard')">
               <NText depth="3" style="display: block; margin-bottom: 0.75rem">
-                Bind, port, data directory, and auth flags require a restart.
-                Sandbox mode applies to newly started servers immediately.
+                {{ t("settings.listenHint") }}
               </NText>
               <NForm label-placement="top">
                 <div class="split-2">
-                  <NFormItem label="Bind address">
+                  <NFormItem :label="t('settings.bindAddress')">
                     <NInput
                       v-model:value="host.bind"
                       :disabled="!auth.can('settings:write')"
                     />
                     <NTag size="tiny" :bordered="false" style="margin-top: 0.35rem">
-                      restart
+                      {{ t("settings.restartTag") }}
                     </NTag>
                   </NFormItem>
-                  <NFormItem label="Port">
+                  <NFormItem :label="t('settings.port')">
                     <NInputNumber
                       v-model:value="host.port"
                       :min="1"
@@ -718,13 +877,59 @@ async function revokeOneSession(id: string) {
                     />
                   </NFormItem>
                 </div>
-                <NFormItem label="Data directory">
+                <NFormItem :label="t('settings.dataDirectory')">
                   <NInput
                     v-model:value="host.dataDir"
                     :disabled="!auth.can('settings:write')"
                   />
                 </NFormItem>
-                <NFormItem label="Process sandbox">
+              </NForm>
+            </NCard>
+
+            <NCard size="small" :title="t('settings.publicUrls')">
+              <NText depth="3" style="display: block; margin-bottom: 0.75rem">
+                {{ t("settings.publicUrlsHint") }}
+              </NText>
+              <NForm label-placement="top">
+                <NFormItem :label="t('settings.siteUrl')">
+                  <NSpace vertical style="width: 100%">
+                    <NAlert
+                      v-if="needsPublicUrl"
+                      type="error"
+                      :bordered="false"
+                    >
+                      {{ t("settings.ssoNeedsUrl") }}
+                    </NAlert>
+                    <NSpace>
+                      <NInput
+                        v-model:value="general.publicUrl"
+                        :placeholder="t('settings.siteUrlPlaceholder')"
+                        style="min-width: min(320px, 60vw)"
+                        :disabled="!auth.can('settings:write')"
+                      />
+                      <NButton
+                        quaternary
+                        :disabled="!auth.can('settings:write')"
+                        @click="general.publicUrl = suggestedPublicUrl()"
+                      >
+                        {{ t("settings.useThisOrigin") }}
+                      </NButton>
+                    </NSpace>
+                  </NSpace>
+                </NFormItem>
+                <NFormItem :label="t('settings.mcpPublicUrl')">
+                  <NInput
+                    v-model:value="general.gatewayPublicUrl"
+                    :placeholder="t('settings.mcpPublicUrlPlaceholder')"
+                    :disabled="!auth.can('settings:write')"
+                  />
+                </NFormItem>
+              </NForm>
+            </NCard>
+
+            <NCard size="small" :title="t('settings.processAuth')">
+              <NForm label-placement="top">
+                <NFormItem :label="t('settings.processSandbox')">
                   <div style="width: 100%">
                     <NSelect
                       v-model:value="host.sandboxMode"
@@ -735,7 +940,7 @@ async function revokeOneSession(id: string) {
                       depth="3"
                       style="display: block; margin-top: 0.4rem; font-size: 0.85rem"
                     >
-                      Active:
+                      {{ t("settings.sandboxActive") }}
                       <code>{{ sandboxActive?.active || "—" }}</code>
                       <span v-if="sandboxActive?.detail">
                         — {{ sandboxActive.detail }}
@@ -744,38 +949,39 @@ async function revokeOneSession(id: string) {
                   </div>
                 </NFormItem>
                 <NAlert type="warning" :bordered="false" style="margin-bottom: 0.85rem">
-                  Disabling auth exposes the admin API and MCP gateway without
-                  credentials. Prefer bootstrap admin users in production.
+                  {{ t("settings.authDisableWarning") }}
                 </NAlert>
-                <NFormItem label="Disable authentication">
+                <NFormItem :label="t('settings.disableAuth')">
                   <NSwitch
                     v-model:value="host.authDisabled"
                     :disabled="!auth.can('settings:write')"
                   />
                 </NFormItem>
-                <NFormItem label="Allow open access until first user">
+                <NFormItem :label="t('settings.allowOpenAccess')">
                   <NSwitch
                     v-model:value="host.authAllowOpen"
                     :disabled="!auth.can('settings:write')"
                   />
                 </NFormItem>
-                <NButton
-                  type="primary"
-                  :loading="savingHost"
-                  :disabled="!auth.can('settings:write')"
-                  @click="saveHost"
-                >
-                  Save host settings
-                </NButton>
               </NForm>
             </NCard>
+
+            <NSpace v-if="auth.can('settings:write')">
+              <NButton
+                type="primary"
+                :loading="savingHost"
+                @click="saveHost"
+              >
+                {{ t("settings.saveHost") }}
+              </NButton>
+            </NSpace>
           </div>
         </NTabPane>
 
         <NTabPane
           v-if="auth.can('settings:read')"
           name="database"
-          tab="Database"
+          :tab="t('settings.tabDatabase')"
         >
           <div class="tab-body">
             <NText
@@ -783,18 +989,18 @@ async function revokeOneSession(id: string) {
               type="error"
               style="display: block; margin-bottom: 0.75rem"
             >
-              Could not load database info: {{ databaseError }}
+              {{ t("settings.dbLoadError", { error: databaseError }) }}
             </NText>
-            <div v-else-if="database" class="split-2">
-              <NCard size="small" title="Connection">
+            <div v-else-if="database" class="db-stack">
+              <NCard size="small" :title="t('settings.connection')">
                 <table class="runtime">
                   <tbody>
                     <tr>
-                      <th>Engine</th>
+                      <th>{{ t("settings.engine") }}</th>
                       <td>{{ database.engine }}</td>
                     </tr>
                     <tr>
-                      <th>URL</th>
+                      <th>{{ t("settings.url") }}</th>
                       <td>
                         <code class="wrap">{{
                           database.urlRedacted || database.url
@@ -802,16 +1008,24 @@ async function revokeOneSession(id: string) {
                       </td>
                     </tr>
                     <tr v-if="database.engine === 'sqlite'">
-                      <th>Path</th>
+                      <th>{{ t("settings.path") }}</th>
                       <td><code class="wrap">{{ database.path }}</code></td>
                     </tr>
                     <tr>
-                      <th>Data dir</th>
+                      <th>{{ t("settings.dataDir") }}</th>
                       <td><code class="wrap">{{ database.dataDir }}</code></td>
                     </tr>
                     <tr v-if="database.sizeBytes != null">
-                      <th>Size</th>
+                      <th>{{ t("settings.size") }}</th>
                       <td>{{ formatBytes(database.sizeBytes) }}</td>
+                    </tr>
+                    <tr>
+                      <th>{{ t("settings.tables") }}</th>
+                      <td>{{ tableOverview }}</td>
+                    </tr>
+                    <tr>
+                      <th>{{ t("settings.migrations") }}</th>
+                      <td>{{ migrationOverview }}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -826,7 +1040,7 @@ async function revokeOneSession(id: string) {
                     :loading="exporting"
                     @click="downloadBackup"
                   >
-                    Download SQLite backup
+                    {{ t("settings.downloadBackup") }}
                   </NButton>
                   <NButton
                     v-if="database.canRestore"
@@ -835,7 +1049,7 @@ async function revokeOneSession(id: string) {
                     tag="label"
                     style="cursor: pointer"
                   >
-                    Upload restore…
+                    {{ t("settings.uploadRestore") }}
                     <input
                       type="file"
                       accept=".db,application/x-sqlite3,application/octet-stream"
@@ -849,42 +1063,73 @@ async function revokeOneSession(id: string) {
                   depth="3"
                   style="display: block; margin-top: 0.75rem; font-size: 0.85rem"
                 >
-                  Postgres backups use <code>pg_dump</code> outside this UI.
+                  {{ t("settings.postgresBackupHint") }}
                 </NText>
-              </NCard>
-
-              <NCard size="small" title="Tables">
-                <table class="runtime">
-                  <tbody>
-                    <tr v-for="(n, name) in database.counts" :key="name">
-                      <th>{{ name }}</th>
-                      <td>{{ n }}</td>
-                    </tr>
-                  </tbody>
-                </table>
               </NCard>
 
               <NCard
                 v-if="database.canMigrateToPostgres && auth.can('settings:write')"
                 size="small"
-                title="Migrate to Postgres"
-                class="span-2"
+                :title="t('settings.migrateTitle')"
               >
                 <NText depth="3" style="display: block; margin-bottom: 0.75rem">
-                  Copies all application tables into a Postgres database, writes
-                  <code>host.json</code>, then requires a host restart. Existing
-                  target rows need “confirm wipe”.
+                  {{ t("settings.migrateHint") }}
                 </NText>
                 <NForm label-placement="top">
-                  <NFormItem label="Postgres URL">
-                    <NInput
-                      v-model:value="migrateUrl"
-                      type="password"
-                      show-password-on="click"
-                      placeholder="postgres://user:pass@host:5432/mcp_hoster"
-                    />
-                  </NFormItem>
-                  <NFormItem label="Wipe existing target rows if present">
+                  <div class="split-2">
+                    <NFormItem :label="t('settings.host')">
+                      <NInput
+                        v-model:value="migrate.host"
+                        :placeholder="t('settings.hostPlaceholder')"
+                      />
+                    </NFormItem>
+                    <NFormItem :label="t('settings.port')">
+                      <NInputNumber
+                        v-model:value="migrate.port"
+                        :min="1"
+                        :max="65535"
+                        style="width: 100%"
+                      />
+                    </NFormItem>
+                  </div>
+                  <div class="split-2">
+                    <NFormItem :label="t('settings.databaseLabel')">
+                      <NInput
+                        v-model:value="migrate.database"
+                        :placeholder="t('settings.databasePlaceholder')"
+                      />
+                    </NFormItem>
+                    <NFormItem :label="t('settings.sslMode')">
+                      <NSelect
+                        v-model:value="migrate.sslMode"
+                        :options="sslModeOptions"
+                      />
+                    </NFormItem>
+                  </div>
+                  <div class="split-2">
+                    <NFormItem :label="t('settings.username')">
+                      <NInput
+                        v-model:value="migrate.username"
+                        :placeholder="t('settings.usernamePlaceholder')"
+                      />
+                    </NFormItem>
+                    <NFormItem :label="t('settings.password')">
+                      <NInput
+                        v-model:value="migrate.password"
+                        type="password"
+                        show-password-on="click"
+                        placeholder="••••••••"
+                      />
+                    </NFormItem>
+                  </div>
+                  <NText
+                    depth="3"
+                    style="display: block; margin: -0.25rem 0 0.85rem; font-size: 0.85rem"
+                  >
+                    {{ t("settings.connectionPreview") }}
+                    <code class="wrap">{{ migrateUrlPreview }}</code>
+                  </NText>
+                  <NFormItem :label="t('settings.wipeTarget')">
                     <NSwitch v-model:value="confirmWipe" />
                   </NFormItem>
                   <NButton
@@ -892,29 +1137,9 @@ async function revokeOneSession(id: string) {
                     :loading="migrating"
                     @click="runMigrate"
                   >
-                    Migrate &amp; switch
+                    {{ t("settings.migrateSwitch") }}
                   </NButton>
                 </NForm>
-              </NCard>
-
-              <NCard size="small" title="Migrations" class="span-2">
-                <table class="runtime">
-                  <thead>
-                    <tr>
-                      <th>Version</th>
-                      <th>Applied</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="m in database.migrations" :key="m.version">
-                      <td><code>{{ m.version }}</code></td>
-                      <td>{{ new Date(m.appliedAt).toLocaleString() }}</td>
-                    </tr>
-                    <tr v-if="!database.migrations.length">
-                      <td colspan="2">No migrations recorded</td>
-                    </tr>
-                  </tbody>
-                </table>
               </NCard>
             </div>
           </div>
@@ -923,162 +1148,200 @@ async function revokeOneSession(id: string) {
         <NTabPane
           v-if="auth.can('settings:read')"
           name="authentication"
-          tab="Authentication"
+          :tab="t('settings.tabAuthentication')"
         >
-          <div class="tab-body">
-            <NCard
-              v-if="auth.isAuthenticated"
-              size="small"
-              title="Your sessions"
-              style="margin-bottom: 1rem"
-            >
-              <NSpace style="margin-bottom: 0.75rem">
-                <NButton size="small" :loading="sessionsLoading" @click="loadSessions">
-                  Refresh
-                </NButton>
-                <NButton
-                  size="small"
-                  type="warning"
-                  secondary
-                  :loading="revokingSessions"
-                  @click="revokeOtherSessions"
-                >
-                  Revoke other sessions
-                </NButton>
-              </NSpace>
-              <table class="runtime">
-                <tbody>
-                  <tr v-for="s in sessions" :key="s.id">
-                    <th>
-                      <code>{{ s.id.slice(0, 12) }}…</code>
-                      <NTag
-                        v-if="s.current"
-                        size="tiny"
-                        type="success"
-                        :bordered="false"
-                        style="margin-left: 0.35rem"
-                      >
-                        this device
-                      </NTag>
-                    </th>
-                    <td>
-                      Created {{ new Date(s.createdAt).toLocaleString() }}
-                      · expires {{ new Date(s.expiresAt).toLocaleString() }}
-                      <NButton
-                        v-if="!s.current"
-                        size="tiny"
-                        quaternary
-                        type="error"
-                        style="margin-left: 0.5rem"
-                        @click="revokeOneSession(s.id)"
-                      >
-                        Revoke
-                      </NButton>
-                    </td>
-                  </tr>
-                  <tr v-if="!sessions.length">
-                    <td colspan="2">No sessions listed</td>
-                  </tr>
-                </tbody>
-              </table>
-            </NCard>
-
+          <div class="tab-body auth-stack">
             <NText
               v-if="oauthError"
               type="error"
               style="display: block; margin-bottom: 0.75rem"
             >
-              Could not load OAuth settings: {{ oauthError }}
+              {{ t("settings.authLoadError", { error: oauthError }) }}
             </NText>
+
             <p class="hint">
-              Configure OAuth / SSO providers. Register this callback with each
-              IdP:
-              <code>{{ oauth.callbackUrlTemplate }}</code>
+              {{
+                t("settings.authHint", {
+                  origin: publicOrigin || t("settings.notSet"),
+                })
+              }}
             </p>
-            <NForm label-placement="top">
-              <div class="split-2">
-                <NFormItem label="Public URL">
-                  <NInput
-                    v-model:value="oauth.publicUrl"
-                    placeholder="https://mcp.example.com"
-                    :disabled="!auth.can('settings:write')"
-                  />
-                </NFormItem>
-                <NFormItem label="Default role (auto-provision)">
-                  <NSelect
-                    v-model:value="oauth.defaultRole"
-                    :options="roleOptions"
-                    :disabled="!auth.can('settings:write')"
-                  />
-                </NFormItem>
-              </div>
-              <NFormItem label="Auto-provision users on first login">
-                <NSwitch
-                  v-model:value="oauth.autoProvision"
-                  :disabled="!auth.can('settings:write')"
-                />
-              </NFormItem>
 
-              <div v-for="p in oauth.providers" :key="p.id" class="provider">
-                <div class="provider-head">
-                  <strong>{{ p.label }}</strong>
-                  <code>{{ p.id }}</code>
-                  <NSwitch
-                    v-model:value="p.enabled"
-                    :disabled="!auth.can('settings:write')"
-                  >
-                    <template #checked>Enabled</template>
-                    <template #unchecked>Disabled</template>
-                  </NSwitch>
-                </div>
+            <NCard size="small" :title="t('settings.ssoProvisioning')">
+              <NForm label-placement="top">
                 <div class="split-2">
-                  <NFormItem label="Client ID">
-                    <NInput
-                      v-model:value="p.clientId"
+                  <NFormItem :label="t('settings.defaultRole')">
+                    <NSelect
+                      v-model:value="oauth.defaultRole"
+                      :options="roleOptions"
                       :disabled="!auth.can('settings:write')"
                     />
                   </NFormItem>
-                  <NFormItem
-                    :label="
-                      p.hasClientSecret
-                        ? 'Client secret (leave blank to keep)'
-                        : 'Client secret'
-                    "
-                  >
-                    <NInput
-                      v-model:value="p.clientSecret"
-                      type="password"
-                      show-password-on="click"
-                      :placeholder="p.hasClientSecret ? '••••••••' : ''"
+                  <NFormItem :label="t('settings.autoProvision')">
+                    <NSwitch
+                      v-model:value="oauth.autoProvision"
                       :disabled="!auth.can('settings:write')"
                     />
                   </NFormItem>
                 </div>
-                <NFormItem v-if="p.id === 'oidc'" label="Issuer URL">
-                  <NInput
-                    v-model:value="p.issuer"
-                    placeholder="https://idp.example.com"
-                    :disabled="!auth.can('settings:write')"
-                  />
-                </NFormItem>
-                <NFormItem label="Scopes (space-separated)">
-                  <NInput
-                    v-model:value="p.scopesText"
-                    :disabled="!auth.can('settings:write')"
-                  />
-                </NFormItem>
-              </div>
+              </NForm>
+            </NCard>
 
-              <NSpace v-if="auth.can('settings:write')">
-                <NButton
-                  type="primary"
-                  :loading="savingOauth"
-                  @click="saveOauth"
-                >
-                  Save OAuth settings
-                </NButton>
-              </NSpace>
-            </NForm>
+            <NTabs v-model:value="authSubTab" type="line" animated size="small">
+              <NTabPane name="oidc" :tab="t('settings.tabOidc')">
+                <div v-if="oidcProvider" class="auth-pane">
+                  <NText depth="3" style="display: block; margin-bottom: 0.75rem">
+                    {{ t("settings.oidcCallback") }}
+                    <code class="wrap">{{ oidcCallbackUrl }}</code>
+                  </NText>
+                  <NForm label-placement="top">
+                    <div class="provider-head">
+                      <NSwitch
+                        v-model:value="oidcProvider.enabled"
+                        :disabled="!auth.can('settings:write')"
+                      >
+                        <template #checked>{{ t("settings.enabled") }}</template>
+                        <template #unchecked>{{ t("settings.disabled") }}</template>
+                      </NSwitch>
+                    </div>
+                    <NFormItem :label="t('settings.issuerUrl')">
+                      <NInput
+                        v-model:value="oidcProvider.issuer"
+                        :placeholder="t('settings.issuerPlaceholder')"
+                        :disabled="!auth.can('settings:write')"
+                      />
+                    </NFormItem>
+                    <div class="split-2">
+                      <NFormItem :label="t('settings.clientId')">
+                        <NInput
+                          v-model:value="oidcProvider.clientId"
+                          :disabled="!auth.can('settings:write')"
+                        />
+                      </NFormItem>
+                      <NFormItem
+                        :label="
+                          oidcProvider.hasClientSecret
+                            ? t('settings.clientSecretKeep')
+                            : t('settings.clientSecret')
+                        "
+                      >
+                        <NInput
+                          v-model:value="oidcProvider.clientSecret"
+                          type="password"
+                          show-password-on="click"
+                          :placeholder="oidcProvider.hasClientSecret ? '••••••••' : ''"
+                          :disabled="!auth.can('settings:write')"
+                        />
+                      </NFormItem>
+                    </div>
+                    <NFormItem :label="t('settings.scopesSpace')">
+                      <NInput
+                        v-model:value="oidcProvider.scopesText"
+                        :disabled="!auth.can('settings:write')"
+                      />
+                    </NFormItem>
+                  </NForm>
+                </div>
+              </NTabPane>
+
+              <NTabPane name="saml" :tab="t('settings.tabSaml')">
+                <div class="auth-pane">
+                  <NText depth="3" style="display: block; margin-bottom: 0.75rem">
+                    {{ t("settings.samlAcs") }}
+                    <code class="wrap">{{ samlAcsUrl }}</code>
+                  </NText>
+                  <NForm label-placement="top">
+                    <NFormItem :label="t('settings.enableSaml')">
+                      <NSwitch
+                        v-model:value="saml.enabled"
+                        :disabled="!auth.can('settings:write')"
+                      />
+                    </NFormItem>
+                    <NFormItem :label="t('settings.idpEntityId')">
+                      <NInput
+                        v-model:value="saml.idpEntityId"
+                        :placeholder="t('settings.idpEntityPlaceholder')"
+                        :disabled="!auth.can('settings:write')"
+                      />
+                    </NFormItem>
+                    <NFormItem :label="t('settings.idpSsoUrl')">
+                      <NInput
+                        v-model:value="saml.ssoUrl"
+                        :placeholder="t('settings.idpSsoPlaceholder')"
+                        :disabled="!auth.can('settings:write')"
+                      />
+                    </NFormItem>
+                    <NFormItem :label="t('settings.idpCertificate')">
+                      <NInput
+                        v-model:value="saml.certificate"
+                        type="textarea"
+                        :autosize="{ minRows: 3, maxRows: 8 }"
+                        :placeholder="t('settings.certPlaceholder')"
+                        :disabled="!auth.can('settings:write')"
+                      />
+                    </NFormItem>
+                    <NFormItem :label="t('settings.emailAttribute')">
+                      <NInput
+                        v-model:value="saml.emailAttribute"
+                        :placeholder="t('settings.emailAttrPlaceholder')"
+                        :disabled="!auth.can('settings:write')"
+                      />
+                    </NFormItem>
+                  </NForm>
+                </div>
+              </NTabPane>
+
+              <NTabPane name="scim" :tab="t('settings.tabScim')">
+                <div class="auth-pane">
+                  <NText depth="3" style="display: block; margin-bottom: 0.75rem">
+                    {{ t("settings.scimBase") }}
+                    <code class="wrap">{{ scimBaseUrl }}</code>
+                  </NText>
+                  <NForm label-placement="top">
+                    <NFormItem :label="t('settings.enableScim')">
+                      <NSwitch
+                        v-model:value="scim.enabled"
+                        :disabled="!auth.can('settings:write')"
+                      />
+                    </NFormItem>
+                    <NFormItem
+                      :label="
+                        scim.hasToken
+                          ? t('settings.bearerTokenKeep')
+                          : t('settings.bearerToken')
+                      "
+                    >
+                      <div class="token-row">
+                        <NInput
+                          v-model:value="scim.bearerToken"
+                          type="password"
+                          show-password-on="click"
+                          :placeholder="scim.hasToken ? '••••••••' : t('settings.tokenPlaceholder')"
+                          :disabled="!auth.can('settings:write')"
+                        />
+                        <NButton
+                          secondary
+                          :disabled="!auth.can('settings:write')"
+                          @click="generateScimToken"
+                        >
+                          {{ t("settings.generate") }}
+                        </NButton>
+                      </div>
+                    </NFormItem>
+                  </NForm>
+                </div>
+              </NTabPane>
+            </NTabs>
+
+            <NSpace v-if="auth.can('settings:write')">
+              <NButton
+                type="primary"
+                :loading="savingAuth || savingOauth"
+                @click="saveAuth"
+              >
+                {{ t("settings.saveAuth") }}
+              </NButton>
+            </NSpace>
           </div>
         </NTabPane>
       </NTabs>
@@ -1092,6 +1355,24 @@ async function revokeOneSession(id: string) {
 }
 .span-2 {
   grid-column: 1 / -1;
+}
+.db-stack,
+.auth-stack,
+.host-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.auth-pane {
+  padding-top: 0.85rem;
+}
+.token-row {
+  display: flex;
+  gap: 0.5rem;
+  width: 100%;
+}
+.token-row .n-input {
+  flex: 1;
 }
 code.wrap {
   word-break: break-all;

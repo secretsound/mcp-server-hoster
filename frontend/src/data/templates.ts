@@ -1,3 +1,4 @@
+import i18n from "../i18n";
 import type { ServerFormValues } from "../types";
 
 export type TemplateDef = {
@@ -7,11 +8,14 @@ export type TemplateDef = {
   values: ServerFormValues;
 };
 
-export const TEMPLATES: TemplateDef[] = [
+type TemplateBase = {
+  id: string;
+  values: ServerFormValues;
+};
+
+const TEMPLATE_BASES: TemplateBase[] = [
   {
     id: "npx",
-    label: "npx package",
-    note: "Run any Node MCP server published to npm. Uses npx -y <package> [args].",
     values: {
       id: "",
       name: "",
@@ -26,8 +30,6 @@ export const TEMPLATES: TemplateDef[] = [
   },
   {
     id: "uvx",
-    label: "uvx package",
-    note: "Run a Python MCP server from PyPI (or a tool name uvx can resolve).",
     values: {
       id: "",
       name: "",
@@ -42,8 +44,6 @@ export const TEMPLATES: TemplateDef[] = [
   },
   {
     id: "uvx-git",
-    label: "uvx from Git",
-    note: "Run a Python MCP server directly from a Git repo via uvx --from git+https://…",
     values: {
       id: "",
       name: "",
@@ -62,8 +62,6 @@ export const TEMPLATES: TemplateDef[] = [
   },
   {
     id: "git-clone",
-    label: "Git clone + run",
-    note: "Clone a repo into the server sandbox, then run a command from that checkout.",
     values: {
       id: "",
       name: "",
@@ -78,8 +76,6 @@ export const TEMPLATES: TemplateDef[] = [
   },
   {
     id: "custom",
-    label: "Custom command",
-    note: "Any binary on PATH — node, python, docker, a local script, etc.",
     values: {
       id: "",
       name: "",
@@ -93,6 +89,19 @@ export const TEMPLATES: TemplateDef[] = [
     },
   },
 ];
+
+/** Localized template list — call when rendering so locale switches apply. */
+export function getTemplates(): TemplateDef[] {
+  const t = i18n.global.t;
+  return TEMPLATE_BASES.map((tmpl) => ({
+    ...tmpl,
+    label: String(t(`templates.${tmpl.id}.label`)),
+    note: String(t(`templates.${tmpl.id}.note`)),
+  }));
+}
+
+/** Snapshot for callers that only need values by id (labels may be stale). */
+export const TEMPLATES: TemplateDef[] = getTemplates();
 
 export type ApiEndpointExample = {
   method: string;
@@ -118,11 +127,13 @@ const SAMPLE_SERVER = {
   runtime: { lastStatus: "running", pid: 12345 },
 };
 
-export const ENDPOINTS: ApiEndpointExample[] = [
+type EndpointBase = Omit<ApiEndpointExample, "desc"> & { descKey: string };
+
+const ENDPOINT_BASES: EndpointBase[] = [
   {
     method: "GET",
     path: "/health",
-    desc: "Host + per-server process health",
+    descKey: "templates.endpoints.health",
     sampleResponse: {
       ok: true,
       port: 8080,
@@ -133,13 +144,13 @@ export const ENDPOINTS: ApiEndpointExample[] = [
   {
     method: "GET",
     path: "/api/servers",
-    desc: "List configured servers",
+    descKey: "templates.endpoints.listServers",
     sampleResponse: { servers: [SAMPLE_SERVER] },
   },
   {
     method: "POST",
     path: "/api/servers",
-    desc: "Create a server (JSON body)",
+    descKey: "templates.endpoints.createServer",
     sampleBody: {
       id: "mealie",
       name: "Mealie",
@@ -153,14 +164,14 @@ export const ENDPOINTS: ApiEndpointExample[] = [
   {
     method: "GET",
     path: "/api/servers/:id",
-    desc: "Get one server",
+    descKey: "templates.endpoints.getServer",
     samplePath: "/api/servers/mealie",
     sampleResponse: { server: SAMPLE_SERVER },
   },
   {
     method: "PATCH",
     path: "/api/servers/:id",
-    desc: "Update server config",
+    descKey: "templates.endpoints.updateServer",
     samplePath: "/api/servers/mealie",
     sampleBody: { name: "Mealie", enabled: true, packageVersion: "0.3.1" },
     sampleResponse: {
@@ -170,21 +181,21 @@ export const ENDPOINTS: ApiEndpointExample[] = [
   {
     method: "DELETE",
     path: "/api/servers/:id",
-    desc: "Delete a server",
+    descKey: "templates.endpoints.deleteServer",
     samplePath: "/api/servers/mealie",
     sampleResponse: { ok: true },
   },
   {
     method: "POST",
     path: "/api/servers/:id/start",
-    desc: "Start process + MCP client",
+    descKey: "templates.endpoints.startServer",
     samplePath: "/api/servers/mealie/start",
     sampleResponse: { server: SAMPLE_SERVER },
   },
   {
     method: "POST",
     path: "/api/servers/:id/stop",
-    desc: "Stop process",
+    descKey: "templates.endpoints.stopServer",
     samplePath: "/api/servers/mealie/stop",
     sampleResponse: {
       server: {
@@ -196,14 +207,14 @@ export const ENDPOINTS: ApiEndpointExample[] = [
   {
     method: "POST",
     path: "/api/servers/:id/restart",
-    desc: "Restart process",
+    descKey: "templates.endpoints.restartServer",
     samplePath: "/api/servers/mealie/restart",
     sampleResponse: { server: SAMPLE_SERVER },
   },
   {
     method: "POST",
     path: "/api/servers/:id/upgrade",
-    desc: "Pin/upgrade package or git ref (optional clearCache)",
+    descKey: "templates.endpoints.upgradeServer",
     samplePath: "/api/servers/mealie/upgrade",
     sampleBody: { version: null, clearCache: true },
     sampleResponse: {
@@ -219,7 +230,7 @@ export const ENDPOINTS: ApiEndpointExample[] = [
   {
     method: "GET",
     path: "/api/servers/:id/logs?tail=200",
-    desc: "Tail on-disk logs",
+    descKey: "templates.endpoints.serverLogs",
     samplePath: "/api/servers/mealie/logs?tail=200",
     sampleResponse: {
       logs: "[2026-08-09T01:00:00Z] connected; 68 tools\n",
@@ -228,7 +239,7 @@ export const ENDPOINTS: ApiEndpointExample[] = [
   {
     method: "GET",
     path: "/api/servers/:id/tools",
-    desc: "Discovered tools (when running)",
+    descKey: "templates.endpoints.serverTools",
     samplePath: "/api/servers/mealie/tools",
     sampleResponse: {
       tools: [
@@ -244,7 +255,7 @@ export const ENDPOINTS: ApiEndpointExample[] = [
   {
     method: "GET",
     path: "/api/library",
-    desc: "List library categories + items",
+    descKey: "templates.endpoints.listLibrary",
     sampleResponse: {
       categories: [{ id: "apps", label: "Apps" }],
       items: [{ id: "mealie", name: "Mealie", category: "apps" }],
@@ -253,7 +264,7 @@ export const ENDPOINTS: ApiEndpointExample[] = [
   {
     method: "POST",
     path: "/api/library/categories",
-    desc: "Create a library category",
+    descKey: "templates.endpoints.createCategory",
     sampleBody: {
       id: "ops",
       label: "Ops",
@@ -266,7 +277,7 @@ export const ENDPOINTS: ApiEndpointExample[] = [
   {
     method: "PATCH",
     path: "/api/library/categories/:id",
-    desc: "Update a library category",
+    descKey: "templates.endpoints.updateCategory",
     samplePath: "/api/library/categories/ops",
     sampleBody: { label: "Operations" },
     sampleResponse: {
@@ -276,14 +287,14 @@ export const ENDPOINTS: ApiEndpointExample[] = [
   {
     method: "DELETE",
     path: "/api/library/categories/:id",
-    desc: "Delete a library category",
+    descKey: "templates.endpoints.deleteCategory",
     samplePath: "/api/library/categories/ops",
     sampleResponse: { ok: true },
   },
   {
     method: "GET",
     path: "/api/library/:id",
-    desc: "Get one library item",
+    descKey: "templates.endpoints.getLibraryItem",
     samplePath: "/api/library/mealie",
     sampleResponse: {
       item: { id: "mealie", name: "Mealie", category: "apps" },
@@ -292,7 +303,7 @@ export const ENDPOINTS: ApiEndpointExample[] = [
   {
     method: "POST",
     path: "/api/library",
-    desc: "Create a library item",
+    descKey: "templates.endpoints.createLibraryItem",
     sampleBody: {
       id: "custom-mcp",
       name: "Custom MCP",
@@ -316,7 +327,7 @@ export const ENDPOINTS: ApiEndpointExample[] = [
   {
     method: "PATCH",
     path: "/api/library/:id",
-    desc: "Update a library item",
+    descKey: "templates.endpoints.updateLibraryItem",
     samplePath: "/api/library/custom-mcp",
     sampleBody: { blurb: "Updated description" },
     sampleResponse: {
@@ -326,14 +337,14 @@ export const ENDPOINTS: ApiEndpointExample[] = [
   {
     method: "DELETE",
     path: "/api/library/:id",
-    desc: "Delete a library item",
+    descKey: "templates.endpoints.deleteLibraryItem",
     samplePath: "/api/library/custom-mcp",
     sampleResponse: { ok: true },
   },
   {
     method: "GET",
     path: "/api/settings",
-    desc: "Host settings key/values",
+    descKey: "templates.endpoints.getSettings",
     sampleResponse: {
       settings: { "host.sandbox_mode": "auto" },
     },
@@ -341,7 +352,7 @@ export const ENDPOINTS: ApiEndpointExample[] = [
   {
     method: "PUT",
     path: "/api/settings",
-    desc: "Update settings (JSON object)",
+    descKey: "templates.endpoints.updateSettings",
     sampleBody: { "host.sandbox_mode": "landlock" },
     sampleResponse: {
       settings: { "host.sandbox_mode": "landlock" },
@@ -351,7 +362,7 @@ export const ENDPOINTS: ApiEndpointExample[] = [
   {
     method: "POST",
     path: "/mcp",
-    desc: "Unified Streamable HTTP MCP gateway (all servers, namespaced tools)",
+    descKey: "templates.endpoints.unifiedMcp",
     sampleBody: {
       jsonrpc: "2.0",
       id: 1,
@@ -374,7 +385,7 @@ export const ENDPOINTS: ApiEndpointExample[] = [
   {
     method: "POST",
     path: "/mcp/:serverId",
-    desc: "Per-server MCP endpoint (original tool names)",
+    descKey: "templates.endpoints.perServerMcp",
     samplePath: "/mcp/mealie",
     sampleBody: {
       jsonrpc: "2.0",
@@ -391,6 +402,18 @@ export const ENDPOINTS: ApiEndpointExample[] = [
     },
   },
 ];
+
+/** Localized endpoint examples — call when rendering so locale switches apply. */
+export function getEndpoints(): ApiEndpointExample[] {
+  const t = i18n.global.t;
+  return ENDPOINT_BASES.map(({ descKey, ...rest }) => ({
+    ...rest,
+    desc: String(t(descKey)),
+  }));
+}
+
+/** Snapshot for modules that import at load time. Prefer getEndpoints(). */
+export const ENDPOINTS: ApiEndpointExample[] = getEndpoints();
 
 export type ConnectPlatform = {
   id: string;
@@ -416,15 +439,20 @@ export function connectPlatforms(
   url: string,
   opts: { authRequired?: boolean; bearerToken?: string } = {},
 ): ConnectPlatform[] {
+  const t = i18n.global.t;
+  const tm = i18n.global.tm;
   const authRequired = opts.authRequired !== false;
   const bearerToken = (opts.bearerToken?.trim() || MCP_KEY_PLACEHOLDER);
   const headers = mcpAuthHeaders(authRequired, bearerToken);
   const authStep = authRequired
-    ? `Auth: prefer OAuth (client opens a browser; you sign in and Allow). Or use an API key — Authorization: Bearer ${bearerToken} from API keys (user key or tenant key for M2M). Session tokens mcs_… are admin-UI only.`
-    : "Auth is disabled on this host — no Bearer header needed.";
-  const oauthNote = authRequired
-    ? "If the client supports MCP OAuth, add only the URL — it will discover /.well-known/oauth-protected-resource and open a browser to sign in."
-    : null;
+    ? String(t("connect.authStep", { token: bearerToken }))
+    : String(t("connect.authDisabledStep"));
+  const oauthNote = authRequired ? String(t("connect.oauthNote")) : null;
+
+  const stepsOf = (key: string): string[] => {
+    const raw = tm(key);
+    return Array.isArray(raw) ? raw.map(String) : [];
+  };
 
   const bifrostClient = {
     name: "mcp-hoster",
@@ -529,26 +557,29 @@ export function connectPlatforms(
     2,
   );
 
+  const claudeDesktopSteps = stepsOf("connect.platforms.claudeDesktop.steps");
+  const cursorSteps = stepsOf("connect.platforms.cursor.steps");
+  const vscodeSteps = stepsOf("connect.platforms.vscode.steps");
+  const claudeCodeSteps = stepsOf("connect.platforms.claudeCode.steps");
+  const windsurfSteps = stepsOf("connect.platforms.windsurf.steps");
+  const continueSteps = stepsOf("connect.platforms.continue.steps");
+  const bifrostSteps = stepsOf("connect.platforms.bifrost.steps");
+  const genericSteps = stepsOf("connect.platforms.generic.steps");
+
   return [
     ...(authRequired
       ? [{
         id: "oauth",
-        name: "OAuth (browser sign-in)",
-        blurb:
-          "Clients that support MCP OAuth open a browser so you can sign in with your account. Tool access uses your user grants. Tenant API keys remain best for machine-to-machine.",
-        steps: [
-          "Add the gateway URL only (no static API key) in a client that supports remote MCP OAuth.",
-          "On first connect the client discovers /.well-known/oauth-protected-resource, registers itself, and opens /oauth/authorize.",
-          "Sign in (password or SSO), then Allow — the client receives an access token (mca_…) for your grants.",
-          "For automation / shared services, use a tenant API key instead (see API keys).",
-        ],
+        name: String(t("connect.platforms.oauth.name")),
+        blurb: String(t("connect.platforms.oauth.blurb")),
+        steps: stepsOf("connect.platforms.oauth.steps"),
         snippets: [
           {
-            label: "URL-only config (OAuth clients)",
+            label: String(t("connect.platforms.oauth.snippetUrlOnly")),
             code: cursorOauth,
           },
           {
-            label: "Discovery endpoints",
+            label: String(t("connect.platforms.oauth.snippetDiscovery")),
             code: [
               `${url.replace(/\/mcp\/?$/, "")}/.well-known/oauth-protected-resource`,
               `${url.replace(/\/mcp\/?$/, "")}/.well-known/oauth-authorization-server`,
@@ -562,105 +593,133 @@ export function connectPlatforms(
       : []),
     {
       id: "claude-desktop",
-      name: "Claude Desktop",
-      blurb: "Point Claude Desktop at the Streamable HTTP gateway.",
+      name: String(t("connect.platforms.claudeDesktop.name")),
+      blurb: String(t("connect.platforms.claudeDesktop.blurb")),
       steps: [
-        "Open Claude Desktop → Settings → Developer → Edit Config.",
-        "Merge the mcpServers block into claude_desktop_config.json.",
+        claudeDesktopSteps[0]!,
+        claudeDesktopSteps[1]!,
         ...(oauthNote ? [oauthNote] : []),
         authStep,
-        "Restart Claude Desktop.",
+        claudeDesktopSteps[2]!,
       ],
       snippets: [
         ...(authRequired
-          ? [{ label: "mcpServers (OAuth — URL only)", code: cursorOauth }]
+          ? [{
+            label: String(t("connect.platforms.claudeDesktop.snippetOauth")),
+            code: cursorOauth,
+          }]
           : []),
-        { label: "claude_desktop_config.json (API key)", code: claudeDesktop },
+        {
+          label: String(t("connect.platforms.claudeDesktop.snippetApiKey")),
+          code: claudeDesktop,
+        },
       ],
       docs: "https://modelcontextprotocol.io/docs/develop/connect-local-servers",
     },
     {
       id: "cursor",
-      name: "Cursor",
-      blurb: "Add the gateway as an MCP server in Cursor settings.",
+      name: String(t("connect.platforms.cursor.name")),
+      blurb: String(t("connect.platforms.cursor.blurb")),
       steps: [
-        "Cursor Settings → MCP → Add new global MCP server (or edit mcp.json).",
-        "Use type/url form if offered; otherwise paste the JSON below.",
+        cursorSteps[0]!,
+        cursorSteps[1]!,
         ...(oauthNote ? [oauthNote] : []),
         authStep,
-        "Reload MCP servers / restart Cursor if tools do not appear.",
+        cursorSteps[2]!,
       ],
       snippets: [
         ...(authRequired
-          ? [{ label: "mcp.json (OAuth — URL only)", code: cursorOauth }]
+          ? [{
+            label: String(t("connect.platforms.cursor.snippetOauth")),
+            code: cursorOauth,
+          }]
           : []),
-        { label: "mcp.json (API key fallback)", code: cursor },
+        {
+          label: String(t("connect.platforms.cursor.snippetApiKey")),
+          code: cursor,
+        },
       ],
     },
     {
       id: "vscode",
-      name: "VS Code / Copilot",
-      blurb: "Configure an HTTP MCP server in VS Code MCP settings.",
+      name: String(t("connect.platforms.vscode.name")),
+      blurb: String(t("connect.platforms.vscode.blurb")),
       steps: [
-        "Command Palette → “MCP: Open User Configuration” (or workspace mcp.json).",
-        "Add the servers entry below (VS Code 1.99+ HTTP MCP).",
+        vscodeSteps[0]!,
+        vscodeSteps[1]!,
         authStep,
-        "Start the server from the MCP view if it does not auto-connect.",
+        vscodeSteps[2]!,
       ],
-      snippets: [{ label: "mcp.json", code: vscode }],
+      snippets: [{
+        label: String(t("connect.platforms.vscode.snippet")),
+        code: vscode,
+      }],
     },
     {
       id: "claude-code",
-      name: "Claude Code",
-      blurb: "Register the HTTP gateway with the Claude Code CLI.",
+      name: String(t("connect.platforms.claudeCode.name")),
+      blurb: String(t("connect.platforms.claudeCode.blurb")),
       steps: [
-        "Run the command below in a terminal where claude is installed.",
+        claudeCodeSteps[0]!,
         authStep,
-        "Verify with claude mcp list.",
+        claudeCodeSteps[1]!,
       ],
-      snippets: [{ label: "CLI", code: claudeCode }],
+      snippets: [{
+        label: String(t("connect.platforms.claudeCode.snippet")),
+        code: claudeCode,
+      }],
     },
     {
       id: "windsurf",
-      name: "Windsurf",
-      blurb: "Cascade MCP config using a remote server URL.",
+      name: String(t("connect.platforms.windsurf.name")),
+      blurb: String(t("connect.platforms.windsurf.blurb")),
       steps: [
-        "Open Windsurf MCP settings / mcp_config.json.",
-        "Add the serverUrl entry and reload Cascade.",
+        windsurfSteps[0]!,
+        windsurfSteps[1]!,
         authStep,
       ],
-      snippets: [{ label: "mcp_config.json", code: windsurf }],
+      snippets: [{
+        label: String(t("connect.platforms.windsurf.snippet")),
+        code: windsurf,
+      }],
     },
     {
       id: "continue",
-      name: "Continue",
-      blurb: "Continue.dev config for a streamable HTTP MCP server.",
+      name: String(t("connect.platforms.continue.name")),
+      blurb: String(t("connect.platforms.continue.blurb")),
       steps: [
-        "Edit ~/.continue/config.yaml or the JSON MCP section your Continue version uses.",
-        "Add the streamable-http server and reload the extension.",
+        continueSteps[0]!,
+        continueSteps[1]!,
         authStep,
       ],
-      snippets: [{ label: "MCP server entry", code: continueDev }],
+      snippets: [{
+        label: String(t("connect.platforms.continue.snippet")),
+        code: continueDev,
+      }],
     },
     {
       id: "bifrost",
-      name: "Bifrost",
-      blurb:
-        "Add the unified gateway, or one Bifrost client per /mcp/<serverId> for cleaner upstream org.",
+      name: String(t("connect.platforms.bifrost.name")),
+      blurb: String(t("connect.platforms.bifrost.blurb")),
       steps: [
-        "In Bifrost: MCP Gateway → New MCP Server (or Clients).",
-        "Connection type: HTTP (Streamable HTTP).",
-        "For everything: connection URL = unified /mcp below.",
-        "For one backend: connection URL = /mcp/<serverId> (e.g. …/mcp/portainer) — tools keep original names.",
+        bifrostSteps[0]!,
+        bifrostSteps[1]!,
+        bifrostSteps[2]!,
+        bifrostSteps[3]!,
         authRequired
-          ? `Auth type: Headers — Authorization: Bearer ${bearerToken} (mint the key under API keys).`
-          : "Auth type: none (host auth is disabled).",
-        "If Bifrost runs on another host, use a reachable MCP Hoster address.",
+          ? String(t("connect.platforms.bifrost.authHeaders", {
+            token: bearerToken,
+          }))
+          : String(t("connect.platforms.bifrost.authNone")),
+        bifrostSteps[4]!,
       ],
       snippets: [
-        { label: "Bifrost client JSON (unified /mcp)", code: bifrostJson },
         {
-          label: "Bifrost API example (adjust Bifrost host/port)",
+          label: String(t("connect.platforms.bifrost.snippetJson")),
+          code: bifrostJson,
+        },
+        {
+          label: String(t("connect.platforms.bifrost.snippetApi")),
           code: bifrostCurl,
         },
       ],
@@ -668,16 +727,19 @@ export function connectPlatforms(
     },
     {
       id: "generic",
-      name: "Generic HTTP / curl",
-      blurb: "Any Streamable HTTP MCP client can POST JSON-RPC to the gateway.",
+      name: String(t("connect.platforms.generic.name")),
+      blurb: String(t("connect.platforms.generic.blurb")),
       steps: [
-        "Transport: Streamable HTTP.",
-        "Endpoint: POST (and GET for SSE where required) on the gateway URL.",
-        "Accept: application/json, text/event-stream.",
+        genericSteps[0]!,
+        genericSteps[1]!,
+        genericSteps[2]!,
         authStep,
-        "Tools are namespaced as {serverId}__{toolName}.",
+        genericSteps[3]!,
       ],
-      snippets: [{ label: "tools/list", code: genericCurl }],
+      snippets: [{
+        label: String(t("connect.platforms.generic.snippet")),
+        code: genericCurl,
+      }],
     },
   ];
 }

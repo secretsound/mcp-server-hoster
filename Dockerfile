@@ -33,7 +33,7 @@ ENV DENO_DIR=/deno-dir \
     HOST_PORT=8080 \
     DATABASE_URL=sqlite:///data/mcp-hoster.db \
     SEED_PATH=/app/seed.example.json \
-    LIBRARY_SEED_PATH=/app/seed/library.json \
+    LIBRARY_SEED_PATH=https://raw.githubusercontent.com/secretsound/mcp_host_server/main/catalog/catalog.json \
     MIGRATIONS_DIR=/app/migrations
 
 RUN mkdir -p /data /deno-dir /var/cache/npm /var/cache/uv \
@@ -86,6 +86,7 @@ COPY scripts ./scripts
 COPY migrations ./migrations
 COPY seed.example.json ./
 COPY seed ./seed
+COPY catalog ./catalog
 COPY --from=ui-build /app/frontend/dist ./frontend/dist
 
 RUN deno install \

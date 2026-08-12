@@ -1,4 +1,11 @@
 import type { ScopeGrant } from "../types";
+import { i18n } from "../i18n";
+
+function t(key: string, ...args: unknown[]): string {
+  return String(
+    (i18n.global.t as (...a: unknown[]) => unknown)(key, ...args),
+  );
+}
 
 export type ReachableServer = {
   id: string;
@@ -58,13 +65,13 @@ export function preferredMcpUrl(
 }
 
 export function scopesSummary(scopes: ScopeGrant[]): string {
-  if (!scopes.length) return "no scopes";
+  if (!scopes.length) return t("scopes.noScopes");
   if (scopes.some((g) => g.serverId === "*" && g.tools.includes("*"))) {
-    return "all servers · all tools";
+    return t("scopes.allServersAllTools");
   }
   if (scopes.some((g) => g.serverId === "*")) {
-    return "all servers · limited tools";
+    return t("scopes.allServersLimitedTools");
   }
   const n = new Set(scopes.map((g) => g.serverId)).size;
-  return `${n} server${n === 1 ? "" : "s"}`;
+  return t("scopes.nServers", n);
 }

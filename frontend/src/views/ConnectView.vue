@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import {
   NAlert,
@@ -27,6 +28,7 @@ import {
 } from "../utils/scopes";
 import { copyText } from "../utils/serverForm";
 
+const { t, locale } = useI18n();
 const servers = useServersStore();
 const auth = useAuthStore();
 const message = useMessage();
@@ -62,20 +64,20 @@ const selectOptions = computed(() => {
     };
   const opts: Opt[] = [
     {
-      label: "Generic placeholder (mch_YOUR_API_KEY)",
+      label: t("connect.placeholderOption"),
       value: "__placeholder__",
     },
   ];
   if (auth.required) {
     opts.push({
-      label: "OAuth / browser sign-in (no static key)",
+      label: t("connect.oauthOption"),
       value: "__oauth__",
     });
   }
   if (myKeys.value.length) {
     opts.push({
       type: "group",
-      label: "Your keys",
+      label: t("connect.yourKeys"),
       key: "g-user",
       children: myKeys.value.map((k) => ({
         label: `${k.name} · ${k.keyPrefix}… · ${scopesSummary(k.scopes)}`,
@@ -86,7 +88,7 @@ const selectOptions = computed(() => {
   if (tenantKeys.value.length) {
     opts.push({
       type: "group",
-      label: "Tenant keys",
+      label: t("connect.tenantKeys"),
       key: "g-tenant",
       children: tenantKeys.value.map((k) => ({
         label: `${k.name} · ${k.keyPrefix}… · ${scopesSummary(k.scopes)}`,
@@ -147,15 +149,16 @@ const bearerForSnippets = computed(() => {
   return undefined;
 });
 
-const platforms = computed(() =>
-  connectPlatforms(mcpTarget.value.url, {
+const platforms = computed(() => {
+  void locale.value;
+  return connectPlatforms(mcpTarget.value.url, {
     authRequired: auth.required,
     bearerToken: bearerForSnippets.value,
-  }),
-);
+  });
+});
 
 const serverName = (id: string) => {
-  if (id === "*") return "All servers";
+  if (id === "*") return t("connect.allServers");
   return servers.servers.find((s) => s.id === id)?.name || id;
 };
 
@@ -170,14 +173,18 @@ const reachableToolHint = computed(() => {
         tools += s.toolCount ?? 0;
         if (s.runtime?.lastStatus === "running") running++;
       }
-      return `${running} running · ${tools} tools visible on host`;
+      return t("connect.reachableHintAll", { running, tools });
     }
     const s = servers.servers.find((x) => x.id === r.id);
     if (!s) continue;
     tools += s.toolCount ?? 0;
     if (s.runtime?.lastStatus === "running") running++;
   }
-  return `${running}/${rows.length} running · ${tools} tools discovered`;
+  return t("connect.reachableHintPartial", {
+    running,
+    total: rows.length,
+    tools,
+  });
 });
 
 async function testConnection() {
@@ -192,20 +199,20 @@ async function testConnection() {
     } else if (selectedKey.value) {
       testResult.value = {
         ok: false,
-        message: "Paste the full API key secret to test (prefix alone is not enough).",
+        message: t("connect.pasteSecretToTest"),
       };
       return;
     } else {
       testResult.value = {
         ok: false,
-        message: "Select a key and paste its secret, or choose OAuth / session.",
+        message: t("connect.selectKeyOrOauth"),
       };
       return;
     }
     if (auth.required && !bearer) {
       testResult.value = {
         ok: false,
-        message: "No credentials available for the test call.",
+        message: t("connect.noCredentials"),
       };
       return;
     }
@@ -240,9 +247,7 @@ async function testConnection() {
     if (!res.ok) throw new Error(`${res.status} ${text.slice(0, 160)}`);
     testResult.value = {
       ok: true,
-      message: `Connected — tools/list returned ${toolCount} tool${
-        toolCount === 1 ? "" : "s"
-      }.`,
+      message: t("connect.connectedTools", { count: toolCount }, toolCount),
     };
   } catch (err) {
     testResult.value = {
@@ -289,11 +294,11 @@ onMounted(async () => {
 });
 
 async function copy(code: string) {
-  if (await copyText(code)) message.success("Copied");
+  if (await copyText(code)) message.success(t("common.copied"));
 }
 
 async function copyUrl() {
-  if (await copyText(mcpTarget.value.url)) message.success("URL copied");
+  if (await copyText(mcpTarget.value.url)) message.success(t("connect.urlCopied"));
 }
 </script>
 
@@ -301,9 +306,9 @@ async function copyUrl() {
   <div>
     <div class="page-head">
       <div>
-        <h1>Connect</h1>
+        <h1>{{ t("connect.title") }}</h1>
         <p class="page-sub">
-          Point MCP clients at this host’s unified gateway.
+          {{ t("connect.subtitle") }}
         </p>
       </div>
       <GatewayPill />
@@ -312,31 +317,31 @@ async function copyUrl() {
     <NCard size="small" class="key-picker" :bordered="false">
       <div class="picker-grid">
         <div>
-          <NText depth="3" class="label">API key for snippets</NText>
+          <NText depth="3" class="label">{{ t("connect.apiKeyForSnippets") }}</NText>
           <NSelect
             v-model:value="selectValue"
             :options="selectOptions"
             :loading="keysLoading"
             :disabled="!auth.required"
-            placeholder="Select a key"
+            :placeholder="t('connect.selectKey')"
             filterable
           />
           <NText v-if="!auth.required" depth="3" class="hint">
-            Auth is disabled — snippets omit Bearer headers.
+            {{ t("connect.authDisabledHint") }}
           </NText>
           <NText
             v-else-if="!allKeys.length && !keysLoading"
             depth="3"
             class="hint"
           >
-            No keys yet —
-            <a href="#" @click.prevent="router.push('/keys')">create one</a>
-            to scope which servers clients can reach.
+            {{ t("connect.noKeysYet") }}
+            <a href="#" @click.prevent="router.push('/keys')">{{ t("connect.createOne") }}</a>
+            {{ t("connect.toScopeServers") }}
           </NText>
         </div>
         <div v-if="selectedKey" class="secret-box">
           <NText depth="3" class="label">
-            Paste full secret (optional, only stored in this tab)
+            {{ t("connect.pasteSecret") }}
           </NText>
           <NInput
             v-model:value="pastedSecret"
@@ -347,35 +352,38 @@ async function copyUrl() {
             :input-props="{ spellcheck: false }"
           />
           <NText depth="3" class="hint">
-            Secrets are shown once at creation. Without a paste, snippets use
-            <code>{{ selectedKey.keyPrefix }}…PASTE_FULL_SECRET</code>.
+            {{
+              t("connect.secretHint", {
+                placeholder: `${selectedKey.keyPrefix}…PASTE_FULL_SECRET`,
+              })
+            }}
           </NText>
         </div>
       </div>
 
       <div class="url-row">
         <div>
-          <NText depth="3" class="label">MCP URL in snippets</NText>
+          <NText depth="3" class="label">{{ t("connect.mcpUrlInSnippets") }}</NText>
           <code class="url">{{ mcpTarget.url }}</code>
           <NTag
             size="tiny"
             :bordered="false"
             style="margin-left: 0.4rem"
           >
-            {{ mcpTarget.mode === "per-server" ? "per-server" : "unified" }}
+            {{ mcpTarget.mode === "per-server" ? t("connect.perServer") : t("connect.unified") }}
           </NTag>
         </div>
-        <NButton size="tiny" @click="copyUrl">Copy URL</NButton>
+        <NButton size="tiny" @click="copyUrl">{{ t("connect.copyUrl") }}</NButton>
       </div>
 
       <div v-if="auth.required" class="reach">
         <NText depth="3" class="label">
           {{
             selection === "__oauth__"
-              ? "Your account can reach"
+              ? t("connect.accountCanReach")
               : selectedKey
-              ? "This key can reach"
-              : "Pick a key to see reachable servers"
+              ? t("connect.keyCanReach")
+              : t("connect.pickKeyToSee")
           }}
         </NText>
         <NSpace v-if="reachable.length" :size="6" style="margin-top: 0.35rem">
@@ -388,13 +396,13 @@ async function copyUrl() {
           >
             {{ serverName(r.id) }}
             <template v-if="r.id !== '*'">
-              · {{ r.allTools ? "all tools" : `${r.tools.length} tools` }}
+              · {{ r.allTools ? t("connect.allTools") : t("connect.toolsCount", { count: r.tools.length }) }}
               <template v-if="servers.servers.find((s) => s.id === r.id)">
-                · {{ servers.servers.find((s) => s.id === r.id)?.toolCount ?? 0 }} live
+                · {{ t("connect.liveCount", { count: servers.servers.find((s) => s.id === r.id)?.toolCount ?? 0 }) }}
               </template>
             </template>
             <template v-else>
-              · {{ r.allTools ? "all tools" : "limited tools" }}
+              · {{ r.allTools ? t("connect.allTools") : t("connect.limitedTools") }}
             </template>
           </NTag>
         </NSpace>
@@ -402,7 +410,7 @@ async function copyUrl() {
           {{ reachableToolHint }}
         </NText>
         <NText v-else-if="selectedKey || selection === '__oauth__'" depth="3">
-          No server scopes configured.
+          {{ t("connect.noServerScopes") }}
         </NText>
       </div>
 
@@ -413,10 +421,10 @@ async function copyUrl() {
           :loading="testing"
           @click="testConnection"
         >
-          Test connection
+          {{ t("connect.testConnection") }}
         </NButton>
         <NText depth="3" class="hint" style="margin: 0">
-          Runs <code>tools/list</code> against the MCP URL above.
+          {{ t("connect.testHint") }}
         </NText>
       </NSpace>
       <NAlert
@@ -431,28 +439,31 @@ async function copyUrl() {
 
     <aside class="notes">
       <p>
-        Transport: <strong>Streamable HTTP</strong>
+        {{ t("connect.transport") }} <strong>{{ t("connect.streamableHttp") }}</strong>
       </p>
       <ul>
         <li>
-          <strong>Unified</strong>
+          <strong>{{ t("connect.unifiedLabel") }}</strong>
           <code>{{ servers.gatewayUrl }}</code>
-          — all running servers; tools named <code>serverId__tool</code>
+          {{ t("connect.unifiedDesc", { pattern: "serverId__tool" }) }}
         </li>
         <li>
-          <strong>Per-server</strong>
+          <strong>{{ t("connect.perServerLabel") }}</strong>
           <code>{{ servers.gatewayUrl }}/&lt;serverId&gt;</code>
-          — one backend, original tool names
+          {{ t("connect.perServerDesc") }}
         </li>
         <li v-if="auth.required">
-          <strong>Auth</strong>
-          — OAuth when the client supports it, or
-          <code>Bearer mch_…</code> from API keys.
-          Session tokens (<code>mcs_…</code>) are UI-only.
+          <strong>{{ t("connect.authLabel") }}</strong>
+          {{
+            t("connect.authEnabledDesc", {
+              bearer: "Bearer mch_…",
+              session: "mcs_…",
+            })
+          }}
         </li>
         <li v-else>
-          <strong>Auth</strong>
-          — disabled on this host (<code>AUTH_DISABLED</code>); no Bearer needed
+          <strong>{{ t("connect.authLabel") }}</strong>
+          {{ t("connect.authDisabledDesc", { flag: "AUTH_DISABLED" }) }}
         </li>
       </ul>
     </aside>
@@ -472,12 +483,12 @@ async function copyUrl() {
           <div v-for="(snip, i) in p.snippets" :key="i" class="snip">
             <NSpace justify="space-between" align="center">
               <NText depth="3">{{ snip.label }}</NText>
-              <NButton size="tiny" @click="copy(snip.code)">Copy</NButton>
+              <NButton size="tiny" @click="copy(snip.code)">{{ t("common.copy") }}</NButton>
             </NSpace>
             <pre class="code">{{ snip.code }}</pre>
           </div>
           <p v-if="p.docs" class="docs">
-            Docs:
+            {{ t("connect.docs") }}
             <a :href="p.docs" target="_blank" rel="noopener">{{ p.docs }}</a>
           </p>
         </NCard>

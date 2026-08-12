@@ -1,17 +1,19 @@
 <script setup lang="ts">
+import { useI18n } from "vue-i18n";
 import { NButton, NTooltip, useMessage } from "naive-ui";
 import { CopyOutline } from "@vicons/ionicons5";
 import { NIcon } from "naive-ui";
 import { useServersStore } from "../stores/servers";
 import { copyText } from "../utils/serverForm";
 
+const { t } = useI18n();
 const servers = useServersStore();
 const message = useMessage();
 
 async function copy() {
   const ok = await copyText(servers.gatewayUrl);
-  if (ok) message.success("Gateway URL copied");
-  else message.error("Could not copy");
+  if (ok) message.success(t("gateway.copied"));
+  else message.error(t("gateway.copyFailed"));
 }
 </script>
 
@@ -21,13 +23,13 @@ async function copy() {
       <template #trigger>
         <code class="url">{{ servers.gatewayUrl }}</code>
       </template>
-      Unified MCP gateway
+      {{ t("gateway.tooltip") }}
     </NTooltip>
     <NButton size="tiny" quaternary @click="copy">
       <template #icon>
         <NIcon :component="CopyOutline" />
       </template>
-      Copy
+      {{ t("gateway.copy") }}
     </NButton>
   </div>
 </template>

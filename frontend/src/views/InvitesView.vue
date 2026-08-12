@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import {
   NAlert,
   NButton,
@@ -22,6 +23,7 @@ import { useServersStore } from "../stores/servers";
 import type { InviteRecord, RoleRecord, ScopeGrant } from "../types";
 import { copyText } from "../utils/serverForm";
 
+const { t } = useI18n();
 const auth = useAuthStore();
 const servers = useServersStore();
 const message = useMessage();
@@ -87,7 +89,7 @@ async function create() {
       expiresInDays: form.expiresInDays,
     });
     revealed.value = invite;
-    message.success("Invite created");
+    message.success(t("invites.createdToast"));
     await refresh();
   } catch (err) {
     message.error(err instanceof Error ? err.message : String(err));
@@ -105,42 +107,42 @@ function inviteEmailBody(token: string): string {
   const role = revealed.value?.role || form.role;
   const email = revealed.value?.email || form.email;
   return [
-    `You're invited to MCP Hoster`,
+    t("invites.emailSubject"),
     ``,
-    `Accept your invite:`,
+    t("invites.emailAccept"),
     url,
     ``,
-    `Account: ${email}`,
-    `Role: ${role}`,
+    t("invites.emailAccount", { email }),
+    t("invites.emailRole", { role }),
     ``,
-    `After joining you'll land on Connect to wire up an MCP client.`,
+    t("invites.emailFooter"),
   ].join("\n");
 }
 
 async function copyLink() {
   if (!revealed.value?.token) return;
   if (await copyText(inviteUrl(revealed.value.token))) {
-    message.success("Invite link copied");
+    message.success(t("invites.linkCopied"));
   }
 }
 
 async function copyEmail() {
   if (!revealed.value?.token) return;
   if (await copyText(inviteEmailBody(revealed.value.token))) {
-    message.success("Email text copied");
+    message.success(t("invites.emailCopied"));
   }
 }
 
 function revoke(inv: InviteRecord) {
   dialog.warning({
-    title: "Revoke invite?",
-    content: `Revoke invite for ${inv.email}?`,
-    positiveText: "Revoke",
-    negativeText: "Cancel",
+    title: t("invites.revokeTitle"),
+    content: t("invites.revokeContent", { email: inv.email }),
+    positiveText: t("invites.revoke"),
+    negativeText: t("common.cancel"),
     onPositiveClick: async () => {
       try {
         await auth.revokeInvite(inv.id);
-        message.success("Revoked");
+        message.success(t("invites.revokedToast"));
         await refresh();
       } catch (err) {
         message.error(err instanceof Error ? err.message : String(err));
@@ -150,12 +152,12 @@ function revoke(inv: InviteRecord) {
 }
 
 function statusOf(inv: InviteRecord) {
-  if (inv.acceptedAt) return { type: "success" as const, label: "Accepted" };
-  if (inv.revokedAt) return { type: "error" as const, label: "Revoked" };
+  if (inv.acceptedAt) return { type: "success" as const, label: t("invites.statusAccepted") };
+  if (inv.revokedAt) return { type: "error" as const, label: t("invites.statusRevoked") };
   if (inv.expiresAt < new Date().toISOString()) {
-    return { type: "warning" as const, label: "Expired" };
+    return { type: "warning" as const, label: t("invites.statusExpired") };
   }
-  return { type: "info" as const, label: "Pending" };
+  return { type: "info" as const, label: t("invites.statusPending") };
 }
 </script>
 
@@ -163,16 +165,15 @@ function statusOf(inv: InviteRecord) {
   <div>
     <div class="page-head">
       <div>
-        <h1>Invites</h1>
+        <h1>{{ t("invites.title") }}</h1>
         <p class="page-sub">
-          Email invites with a role and optional tool grants. Recipients can set
-          a password or join via OAuth.
+          {{ t("invites.subtitle") }}
         </p>
       </div>
-      <NButton type="primary" @click="openCreate">Invite user</NButton>
+      <NButton type="primary" @click="openCreate">{{ t("invites.inviteUser") }}</NButton>
     </div>
 
-    <NEmpty v-if="!loading && !invites.length" description="No invites yet" />
+    <NEmpty v-if="!loading && !invites.length" :description="t('invites.noInvites')" />
     <div v-else class="cards">
       <NCard v-for="inv in invites" :key="inv.id" size="small">
         <div class="top">
@@ -196,11 +197,11 @@ function statusOf(inv: InviteRecord) {
             :disabled="!!inv.acceptedAt || !!inv.revokedAt"
             @click="revoke(inv)"
           >
-            Revoke
+            {{ t("invites.revoke") }}
           </NButton>
         </div>
         <NText depth="3" class="dates">
-          Expires {{ new Date(inv.expiresAt).toLocaleString() }}
+          {{ t("invites.expires", { when: new Date(inv.expiresAt).toLocaleString() }) }}
         </NText>
       </NCard>
     </div>
@@ -208,15 +209,15 @@ function statusOf(inv: InviteRecord) {
     <NModal
       v-model:show="modalOpen"
       preset="card"
-      title="Invite user"
+      :title="t('invites.inviteUser')"
       style="width: min(560px, 96vw)"
       :mask-closable="!revealed"
     >
       <div v-if="revealed?.token">
         <NAlert type="warning" :bordered="false">
-          Copy this link now — the invite token is only shown once.
+          {{ t("invites.secretWarning") }}
         </NAlert>
-        <NText depth="3" class="preview-label">Invite link</NText>
+        <NText depth="3" class="preview-label">{{ t("invites.inviteLink") }}</NText>
         <NInput
           class="link"
           type="textarea"
@@ -225,25 +226,25 @@ function statusOf(inv: InviteRecord) {
           :autosize="{ minRows: 2, maxRows: 4 }"
           style="margin: 0.35rem 0 0.85rem"
         />
-        <NText depth="3" class="preview-label">Email preview</NText>
+        <NText depth="3" class="preview-label">{{ t("invites.emailPreview") }}</NText>
         <pre class="email-preview">{{ inviteEmailBody(revealed.token) }}</pre>
         <NSpace justify="end">
-          <NButton @click="copyEmail">Copy email text</NButton>
-          <NButton @click="copyLink">Copy link</NButton>
-          <NButton type="primary" @click="modalOpen = false">Done</NButton>
+          <NButton @click="copyEmail">{{ t("invites.copyEmailText") }}</NButton>
+          <NButton @click="copyLink">{{ t("invites.copyLink") }}</NButton>
+          <NButton type="primary" @click="modalOpen = false">{{ t("invites.done") }}</NButton>
         </NSpace>
       </div>
       <div v-else>
-        <NFormItem label="Email">
+        <NFormItem :label="t('invites.email')">
           <NInput v-model:value="form.email" />
         </NFormItem>
-        <NFormItem label="Role">
+        <NFormItem :label="t('invites.role')">
           <NSelect v-model:value="form.role" :options="roleOptions" />
         </NFormItem>
-        <NFormItem label="Expires in (days)">
+        <NFormItem :label="t('invites.expiresInDays')">
           <NInputNumber v-model:value="form.expiresInDays" :min="1" :max="90" />
         </NFormItem>
-        <NFormItem v-if="form.role !== 'admin'" label="Tool grants">
+        <NFormItem v-if="form.role !== 'admin'" :label="t('invites.toolGrants')">
           <ScopeEditor
             v-model="form.grants"
             :server-options="serverOptions"
@@ -251,14 +252,14 @@ function statusOf(inv: InviteRecord) {
           />
         </NFormItem>
         <NSpace justify="end">
-          <NButton @click="modalOpen = false">Cancel</NButton>
+          <NButton @click="modalOpen = false">{{ t("common.cancel") }}</NButton>
           <NButton
             type="primary"
             :loading="creating"
             :disabled="!form.email.includes('@')"
             @click="create"
           >
-            Create invite
+            {{ t("invites.createInvite") }}
           </NButton>
         </NSpace>
       </div>

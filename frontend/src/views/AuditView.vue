@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { RouterLink } from "vue-router";
 import {
   NButton,
@@ -16,6 +17,7 @@ import type { AuditEvent } from "../types";
 
 const PAGE = 50;
 
+const { t, te } = useI18n();
 const auth = useAuthStore();
 const message = useMessage();
 
@@ -27,43 +29,50 @@ const actionFilter = ref<string>("");
 const resourceFilter = ref<string>("");
 const openMetaId = ref<string | null>(null);
 
-const actionOptions = [
-  { label: "All actions", value: "" },
-  { label: "Login", value: "auth.login" },
-  { label: "Login failed", value: "auth.login_failed" },
-  { label: "Session revoked", value: "auth.session_revoke" },
-  { label: "API key created", value: "api_key.create" },
-  { label: "API key revoked", value: "api_key.revoke" },
-  { label: "Invite created", value: "invite.create" },
-  { label: "Invite accepted", value: "invite.accept" },
-  { label: "Invite revoked", value: "invite.revoke" },
-  { label: "Server created", value: "server.create" },
-  { label: "Server deleted", value: "server.delete" },
-  { label: "Server started", value: "server.start" },
-  { label: "Server stopped", value: "server.stop" },
-  { label: "Server restarted", value: "server.restart" },
-  { label: "Server upgraded", value: "server.upgrade" },
-  { label: "Server crashed", value: "server.crash" },
-  { label: "Database backup", value: "database.backup" },
-  { label: "Database restore", value: "database.restore" },
-  { label: "Sandbox mode changed", value: "settings.sandbox_mode" },
-];
+const ACTION_VALUES = [
+  "auth.login",
+  "auth.login_failed",
+  "auth.session_revoke",
+  "api_key.create",
+  "api_key.revoke",
+  "invite.create",
+  "invite.accept",
+  "invite.revoke",
+  "server.create",
+  "server.delete",
+  "server.start",
+  "server.stop",
+  "server.restart",
+  "server.upgrade",
+  "server.crash",
+  "database.backup",
+  "database.restore",
+  "settings.sandbox_mode",
+] as const;
 
-const resourceOptions = [
-  { label: "All", value: "" },
-  { label: "Servers", value: "server" },
-  { label: "API keys", value: "api_key" },
-  { label: "Invites", value: "invite" },
-  { label: "Users", value: "user" },
-  { label: "Settings", value: "settings" },
-  { label: "Database", value: "database" },
-];
+const actionOptions = computed(() => [
+  { label: t("audit.allActions"), value: "" },
+  ...ACTION_VALUES.map((value) => ({
+    label: t(`audit.actions.${value}`),
+    value,
+  })),
+]);
+
+const resourceOptions = computed(() => [
+  { label: t("audit.all"), value: "" },
+  { label: t("audit.resourceServers"), value: "server" },
+  { label: t("audit.resourceApiKeys"), value: "api_key" },
+  { label: t("audit.resourceInvites"), value: "invite" },
+  { label: t("audit.resourceUsers"), value: "user" },
+  { label: t("audit.resourceSettings"), value: "settings" },
+  { label: t("audit.resourceDatabase"), value: "database" },
+]);
 
 const pageLabel = computed(() => {
-  if (!total.value) return "0 events";
+  if (!total.value) return t("audit.zeroEvents");
   const start = offset.value + 1;
   const end = Math.min(offset.value + PAGE, total.value);
-  return `${start}–${end} of ${total.value}`;
+  return t("audit.pageRange", { start, end, total: total.value });
 });
 
 function actionType(
@@ -103,7 +112,8 @@ function actionType(
 }
 
 function actionLabel(action: string): string {
-  return actionOptions.find((o) => o.value === action)?.label ?? action;
+  const key = `audit.actions.${action}`;
+  return te(key) ? t(key) : action;
 }
 
 function formatWhen(iso: string): string {
@@ -121,13 +131,13 @@ function relativeWhen(iso: string): string {
   const ms = Date.now() - new Date(iso).getTime();
   if (Number.isNaN(ms)) return formatWhen(iso);
   const sec = Math.round(ms / 1000);
-  if (sec < 45) return "just now";
+  if (sec < 45) return t("audit.justNow");
   const min = Math.round(sec / 60);
-  if (min < 60) return `${min}m ago`;
+  if (min < 60) return t("audit.minutesAgo", { n: min });
   const hr = Math.round(min / 60);
-  if (hr < 24) return `${hr}h ago`;
+  if (hr < 24) return t("audit.hoursAgo", { n: hr });
   const day = Math.round(hr / 24);
-  if (day < 14) return `${day}d ago`;
+  if (day < 14) return t("audit.daysAgo", { n: day });
   return formatWhen(iso);
 }
 
@@ -197,13 +207,15 @@ watch([offset, actionFilter, resourceFilter], () => {
   <div>
     <div class="page-head">
       <div>
-        <h1>Audit</h1>
+        <h1>{{ t("audit.title") }}</h1>
         <p class="page-sub">
-          Activity across logins, API keys, invites, and servers.
-          <template v-if="!loading"> · {{ total }} event{{ total === 1 ? "" : "s" }}</template>
+          {{ t("audit.subtitle") }}
+          <template v-if="!loading">
+            {{ t("audit.eventCount", total, { named: { count: total } }) }}
+          </template>
         </p>
       </div>
-      <NButton :loading="loading" @click="refresh">Refresh</NButton>
+      <NButton :loading="loading" @click="refresh">{{ t("audit.refresh") }}</NButton>
     </div>
 
     <div class="toolbar">
@@ -212,7 +224,7 @@ watch([offset, actionFilter, resourceFilter], () => {
         :options="actionOptions"
         style="width: min(220px, 100%)"
         clearable
-        placeholder="Action"
+        :placeholder="t('audit.action')"
       />
       <div class="filters">
         <button
@@ -230,7 +242,7 @@ watch([offset, actionFilter, resourceFilter], () => {
 
     <NEmpty
       v-if="!loading && !events.length"
-      description="No audit events match these filters"
+      :description="t('audit.noEvents')"
       style="margin-top: 1.5rem"
     >
       <template v-if="actionFilter || resourceFilter" #extra>
@@ -240,7 +252,7 @@ watch([offset, actionFilter, resourceFilter], () => {
             resourceFilter = '';
           "
         >
-          Clear filters
+          {{ t("audit.clearFilters") }}
         </NButton>
       </template>
     </NEmpty>
@@ -268,7 +280,7 @@ watch([offset, actionFilter, resourceFilter], () => {
         </div>
         <div class="summary">{{ ev.summary }}</div>
         <div class="meta">
-          <span>{{ ev.actorEmail || "system" }}</span>
+          <span>{{ ev.actorEmail || t("audit.system") }}</span>
           <template v-if="ev.resourceType">
             ·
             <RouterLink
@@ -292,7 +304,7 @@ watch([offset, actionFilter, resourceFilter], () => {
             class="meta-toggle"
             @click="toggleMeta(ev.id)"
           >
-            {{ openMetaId === ev.id ? "Hide details" : "Details" }}
+            {{ openMetaId === ev.id ? t("audit.hideDetails") : t("audit.details") }}
           </button>
         </div>
         <div v-if="openMetaId === ev.id && hasMeta(ev)" class="meta-panel">
@@ -315,14 +327,14 @@ watch([offset, actionFilter, resourceFilter], () => {
       style="margin-top: 1rem"
     >
       <NButton :disabled="offset === 0 || loading" @click="prevPage">
-        Previous
+        {{ t("audit.previous") }}
       </NButton>
       <NText depth="3">{{ pageLabel }}</NText>
       <NButton
         :disabled="offset + PAGE >= total || loading"
         @click="nextPage"
       >
-        Next
+        {{ t("audit.next") }}
       </NButton>
     </NSpace>
   </div>

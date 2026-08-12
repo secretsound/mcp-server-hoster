@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, h, onMounted, onUnmounted, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import {
   NButton,
@@ -8,6 +9,7 @@ import {
   NDropdown,
   NIcon,
   NMenu,
+  NSelect,
   NSpace,
   NText,
   NTooltip,
@@ -35,16 +37,20 @@ import AddServerModal from "../components/AddServerModal.vue";
 import InstallWizardModal from "../components/InstallWizardModal.vue";
 import GatewayPill from "../components/GatewayPill.vue";
 import { useAuthStore } from "../stores/auth";
+import { useLocaleStore } from "../stores/locale";
 import { useServersStore } from "../stores/servers";
 import { useSettingsStore } from "../stores/settings";
 import { useThemeStore } from "../stores/theme";
 import { useUiStore } from "../stores/ui";
+import type { AppLocale } from "../i18n";
 
+const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
 const servers = useServersStore();
 const settingsStore = useSettingsStore();
 const theme = useThemeStore();
+const localeStore = useLocaleStore();
 const ui = useUiStore();
 const auth = useAuthStore();
 const message = useMessage();
@@ -90,68 +96,68 @@ function renderIcon(icon: typeof ServerOutline) {
 const menuOptions = computed<MenuOption[]>(() => {
   const items: MenuOption[] = [
     {
-      label: "Servers",
+      label: t("nav.servers"),
       key: "/",
       icon: renderIcon(ServerOutline),
     },
   ];
   if (auth.can("servers:read")) {
     items.push({
-      label: "Library",
+      label: t("nav.library"),
       key: "/library",
       icon: renderIcon(LibraryOutline),
     });
   }
   items.push(
     {
-      label: "Connect",
+      label: t("nav.connect"),
       key: "/connect",
       icon: renderIcon(LinkOutline),
     },
     {
-      label: "API keys",
+      label: t("nav.apiKeys"),
       key: "/keys",
       icon: renderIcon(KeyOutline),
     },
   );
   if (auth.can("users:read")) {
     items.push({
-      label: "Users",
+      label: t("nav.users"),
       key: "/users",
       icon: renderIcon(PeopleOutline),
     });
   }
   if (auth.can("invites:write")) {
     items.push({
-      label: "Invites",
+      label: t("nav.invites"),
       key: "/invites",
       icon: renderIcon(MailOutline),
     });
   }
   if (auth.can("roles:read")) {
     items.push({
-      label: "Roles",
+      label: t("nav.roles"),
       key: "/roles",
       icon: renderIcon(RibbonOutline),
     });
   }
   if (auth.can("audit:read")) {
     items.push({
-      label: "Audit",
+      label: t("nav.audit"),
       key: "/audit",
       icon: renderIcon(TimeOutline),
     });
   }
   if (auth.can("servers:read")) {
     items.push({
-      label: "API",
+      label: t("nav.api"),
       key: "/api",
       icon: renderIcon(CodeSlashOutline),
     });
   }
   if (auth.can("settings:read")) {
     items.push({
-      label: "Settings",
+      label: t("nav.settings"),
       key: "/settings",
       icon: renderIcon(SettingsOutline),
     });
@@ -185,20 +191,25 @@ const themeIcon = computed(() => {
   return CloudOutline;
 });
 
-const themeTip = computed(() => `Theme: ${theme.preference}`);
+const themeTip = computed(() =>
+  t("nav.theme", { preference: theme.preference }),
+);
 
 const userLabel = computed(() => {
-  if (!auth.user) return auth.required ? "Signed out" : "Open mode";
+  if (!auth.user) {
+    return auth.required ? t("nav.signedOut") : t("nav.openMode");
+  }
   return auth.user.displayName || auth.user.email;
 });
 
 const userMenu = computed(() => {
   const opts: Array<{ label: string; key: string }> = [];
   if (auth.isAuthenticated) {
-    opts.push({ label: "API keys", key: "keys" });
-    opts.push({ label: "Sign out", key: "logout" });
+    opts.push({ label: t("nav.profile"), key: "profile" });
+    opts.push({ label: t("nav.apiKeys"), key: "keys" });
+    opts.push({ label: t("nav.signOut"), key: "logout" });
   } else if (auth.required) {
-    opts.push({ label: "Sign in", key: "login" });
+    opts.push({ label: t("nav.signIn"), key: "login" });
   }
   return opts;
 });
@@ -206,7 +217,7 @@ const userMenu = computed(() => {
 async function onUserMenu(key: string) {
   if (key === "logout") {
     await auth.logout();
-    message.success("Signed out");
+    message.success(t("nav.signedOut"));
     if (auth.needsLogin) await router.push({ name: "login" });
     return;
   }
@@ -214,9 +225,17 @@ async function onUserMenu(key: string) {
     await router.push({ name: "login" });
     return;
   }
+  if (key === "profile") {
+    await router.push({ name: "profile" });
+    return;
+  }
   if (key === "keys") {
     await router.push({ name: "keys" });
   }
+}
+
+function onLocaleUpdate(v: string) {
+  localeStore.setLocale(v as AppLocale);
 }
 
 watch(
@@ -246,7 +265,7 @@ watch(
       <button
         type="button"
         class="collapse-btn"
-        :aria-label="collapsed ? 'Expand menu' : 'Collapse menu'"
+        :aria-label="collapsed ? t('nav.expandMenu') : t('nav.collapseMenu')"
         @click="collapsed = !collapsed"
       >
         {{ collapsed ? "›" : "‹" }}
@@ -274,6 +293,14 @@ watch(
             <GatewayPill />
           </NSpace>
           <NSpace :size="8" align="center">
+            <NSelect
+              :value="localeStore.locale"
+              :options="localeStore.options"
+              size="small"
+              class="locale-select"
+              :aria-label="t('common.language')"
+              @update:value="onLocaleUpdate"
+            />
             <NTooltip>
               <template #trigger>
                 <NButton quaternary circle @click="theme.cycle()">
@@ -303,7 +330,7 @@ watch(
               <template #icon>
                 <NIcon :component="AddOutline" />
               </template>
-              Add server
+              {{ t("nav.addServer") }}
             </NButton>
           </NSpace>
         </NSpace>
@@ -448,5 +475,8 @@ watch(
 }
 .user-pill {
   font-size: 0.9rem;
+}
+.locale-select {
+  width: 110px;
 }
 </style>

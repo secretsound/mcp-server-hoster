@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import { NDynamicInput, NInput, NText } from "naive-ui";
 import type { EnvPair } from "../types";
 import { isEnvPairRequired } from "../utils/serverForm";
 
+const { t } = useI18n();
 const model = defineModel<EnvPair[]>({ required: true });
 
 const props = withDefaults(
@@ -36,16 +38,16 @@ function isHighlighted(pair: EnvPair): boolean {
           <NInput
             v-model:value="value.value"
             :type="value.secret ? 'password' : 'text'"
-            :placeholder="value.secret ? '••••••••' : 'value'"
+            :placeholder="value.secret ? '••••••••' : t('envEditor.valuePlaceholder')"
             :show-password-on="value.secret ? 'click' : undefined"
           />
         </div>
         <NText v-if="value.description" depth="3" class="hint">
           {{ value.description }}
-          <template v-if="isHighlighted(value)"> · required</template>
+          <template v-if="isHighlighted(value)">{{ t("envEditor.requiredSuffix") }}</template>
         </NText>
         <NText v-else-if="isHighlighted(value)" depth="3" class="hint">
-          Required before start
+          {{ t("envEditor.requiredBeforeStart") }}
         </NText>
       </div>
     </template>

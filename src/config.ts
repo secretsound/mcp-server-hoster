@@ -1,6 +1,10 @@
 import { join, resolve } from "@std/path";
 import { ensureDir } from "@std/fs";
 
+/** Official library catalog on GitHub (main branch). */
+export const DEFAULT_LIBRARY_CATALOG_URL =
+  "https://raw.githubusercontent.com/secretsound/mcp_host_server/main/catalog/catalog.json";
+
 export type HostBootstrapFile = {
   databaseUrl?: string;
   bind?: string;
@@ -168,8 +172,16 @@ export async function loadBootstrapConfig(): Promise<BootstrapConfig> {
     ? sqlitePathFromUrl(databaseUrl, dataDir)
     : "";
 
-  const seedPath = env("SEED_PATH", "./seed.example.json") ?? null;
-  const librarySeedPath = env("LIBRARY_SEED_PATH", "./seed/library.json") ?? null;
+  // Optional demo servers seed. Unset SEED_PATH (or set empty) to skip.
+  const seedPathRaw = Deno.env.get("SEED_PATH");
+  const seedPath = seedPathRaw === undefined
+    ? "./seed.example.json"
+    : (seedPathRaw.trim() || null);
+  // Library catalog: GitHub by default; override with a local path or other URL.
+  const librarySeedRaw = Deno.env.get("LIBRARY_SEED_PATH");
+  const librarySeedPath = librarySeedRaw === undefined
+    ? DEFAULT_LIBRARY_CATALOG_URL
+    : (librarySeedRaw.trim() || null);
 
   const gatewayFromEnv = env("GATEWAY_PUBLIC_URL")?.trim();
   const gatewayPublicUrl = normalizeGatewayUrl(

@@ -1,0 +1,48 @@
+export default {
+  npx: {
+    label: "paquete npx",
+    note: "Ejecuta cualquier servidor MCP de Node publicado en npm. Usa npx -y <package> [args].",
+  },
+  uvx: {
+    label: "paquete uvx",
+    note: "Ejecuta un servidor MCP de Python desde PyPI (o un nombre de herramienta que uvx pueda resolver).",
+  },
+  "uvx-git": {
+    label: "uvx desde Git",
+    note: "Ejecuta un servidor MCP de Python directamente desde un repo Git vía uvx --from git+https://…",
+  },
+  "git-clone": {
+    label: "Clonar Git + ejecutar",
+    note: "Clona un repo en el sandbox del servidor y luego ejecuta un comando desde ese checkout.",
+  },
+  custom: {
+    label: "Comando personalizado",
+    note: "Cualquier binario en PATH — node, python, docker, un script local, etc.",
+  },
+  endpoints: {
+    health: "Salud del host + proceso por servidor",
+    listServers: "Listar servidores configurados",
+    createServer: "Crear un servidor (cuerpo JSON)",
+    getServer: "Obtener un servidor",
+    updateServer: "Actualizar la configuración del servidor",
+    deleteServer: "Eliminar un servidor",
+    startServer: "Iniciar proceso + cliente MCP",
+    stopServer: "Detener proceso",
+    restartServer: "Reiniciar proceso",
+    upgradeServer: "Fijar/actualizar paquete o ref de git (clearCache opcional)",
+    serverLogs: "Ver registros en disco",
+    serverTools: "Herramientas descubiertas (cuando está en ejecución)",
+    listLibrary: "Listar categorías e ítems de la biblioteca",
+    createCategory: "Crear una categoría de biblioteca",
+    updateCategory: "Actualizar una categoría de biblioteca",
+    deleteCategory: "Eliminar una categoría de biblioteca",
+    getLibraryItem: "Obtener un ítem de la biblioteca",
+    createLibraryItem: "Crear un ítem de la biblioteca",
+    updateLibraryItem: "Actualizar un ítem de la biblioteca",
+    deleteLibraryItem: "Eliminar un ítem de la biblioteca",
+    getSettings: "Ajustes del host (clave/valor)",
+    updateSettings: "Actualizar ajustes (objeto JSON)",
+    unifiedMcp: "Puerta de enlace MCP Streamable HTTP unificada (todos los servidores, herramientas con espacio de nombres)",
+    perServerMcp: "Endpoint MCP por servidor (nombres originales de herramientas)",
+  },
+} as const;

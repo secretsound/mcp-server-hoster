@@ -1,28 +1,48 @@
 services:
   mcp-hoster:
-    # Default pulls GHCR. Override with MCP_HOSTER_IMAGE; rebuild with --build.
+    # Prefer a release tag in production, e.g. ghcr.io/secretsound/mcp_host_server:v0.1.0
     image: ${MCP_HOSTER_IMAGE:-ghcr.io/secretsound/mcp_host_server:latest}
     build:
       context: .
       target: production
     pull_policy: ${MCP_HOSTER_PULL_POLICY:-missing}
     ports:
-      - "8080:8080"
+      - "${HOST_PORT:-8080}:8080"
     environment:
       HOST_BIND: "0.0.0.0"
       HOST_PORT: "8080"
       DATA_DIR: "/data"
-      DATABASE_URL: "sqlite:///data/mcp-hoster.db"
-      SEED_PATH: "/app/seed.example.json"
+      DATABASE_URL: ${DATABASE_URL:-sqlite:///data/mcp-hoster.db}
       MIGRATIONS_DIR: "/app/migrations"
-      # Required on first boot (fail-closed). Copy .env.example → .env or export these.
+      # Optional overrides (image defaults: demo seed + GitHub library catalog)
+      # SEED_PATH: ""
+      # LIBRARY_SEED_PATH: /app/catalog/catalog.json
+      # Site URL for SSO redirects / absolute links (set in .env for reverse-proxy deploys).
+      HOST_PUBLIC_URL: ${HOST_PUBLIC_URL:-}
+      # Advertised MCP endpoint; defaults to HOST_PUBLIC_URL/mcp when blank at runtime via UI save.
+      GATEWAY_PUBLIC_URL: ${GATEWAY_PUBLIC_URL:-}
+      # Required on first boot (fail-closed). Copy .env.example → .env.
       BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:?Set BOOTSTRAP_ADMIN_EMAIL}
       BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:?Set BOOTSTRAP_ADMIN_PASSWORD}
       BOOTSTRAP_ADMIN_DISPLAY_NAME: ${BOOTSTRAP_ADMIN_DISPLAY_NAME:-Admin}
+      AUTH_ALLOW_OPEN: ${AUTH_ALLOW_OPEN:-0}
+      AUTH_DISABLED: ${AUTH_DISABLED:-0}
     volumes:
-      - ./data:/data
+      - ${MCP_HOSTER_DATA:-./data}:/data
     # Nested user namespaces (bubblewrap) need a looser seccomp profile on many hosts.
     # Landlock still works without this; remove if your runtime forbids it.
     security_opt:
       - seccomp:unconfined
     restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "deno",
+          "eval",
+          "const r=await fetch('http://127.0.0.1:8080/health'); if(!r.ok) Deno.exit(1)",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s

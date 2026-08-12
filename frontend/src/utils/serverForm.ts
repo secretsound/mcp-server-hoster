@@ -6,12 +6,17 @@ import type {
   ServerWithRuntime,
   UpdateServerInput,
 } from "../types";
+import { i18n } from "../i18n";
 import {
   formatNpmSpec,
   formatUvxSpec,
   parseNpmSpec,
   parseUvxSpec,
 } from "./packageSpec";
+
+function t(key: string, named?: Record<string, unknown>): string {
+  return String(i18n.global.t(key, named ?? {}));
+}
 
 export function shellSplit(input: unknown): string[] {
   const out: string[] = [];
@@ -116,7 +121,7 @@ function resolveCommandArgs(values: ServerFormValues): {
   const pin = (values.packageVersion || "").trim() || null;
   if (launcher === "npx") {
     const pkgName = (values.package || "").trim();
-    if (!pkgName) throw new Error("Package is required for npx");
+    if (!pkgName) throw new Error(t("serverForm.packageRequiredNpx"));
     // Allow pasting a full @scope/name@version into the package field.
     const parsed = parseNpmSpec(pkgName);
     const name = parsed.name || pkgName;
@@ -132,17 +137,10 @@ function resolveCommandArgs(values: ServerFormValues): {
     const pkg = (values.package || "").trim();
     const extra = shellSplit(values.extraArgs);
     if (!pkg) {
-      throw new Error(
-        "Put the PyPI package name in “PyPI package name” (e.g. mcp-portainer). " +
-          "You do not need the Advanced Git URL for Portainer. " +
-          "For uvx --from … use the Custom command template instead.",
-      );
+      throw new Error(t("serverForm.packageRequiredUvx"));
     }
     if (pkg.startsWith("@") && pkg.includes("/")) {
-      throw new Error(
-        "That looks like an npm package. For Portainer use PyPI name mcp-portainer " +
-          "(or switch Launch with back to npx for Node servers).",
-      );
+      throw new Error(t("serverForm.looksLikeNpm"));
     }
     const parsed = parseUvxSpec(pkg);
     const name = parsed.name || pkg;
@@ -155,7 +153,7 @@ function resolveCommandArgs(values: ServerFormValues): {
     };
   }
   const command = (values.command || "").trim();
-  if (!command) throw new Error("Command is required");
+  if (!command) throw new Error(t("serverForm.commandRequired"));
   const lines = String(values.argsLines || "")
     .split("\n")
     .map((l) => l.trim())
@@ -222,9 +220,9 @@ export function assertEnvReadyForStart(
 ): void {
   for (const key of requiredKeys) {
     const v = (env[key] || "").trim();
-    if (!v) throw new Error(`Set ${key} before starting.`);
+    if (!v) throw new Error(t("serverForm.setKeyBeforeStart", { key }));
     if (isPlaceholderEnvValue(v)) {
-      throw new Error(`Replace the placeholder value for ${key} before starting.`);
+      throw new Error(t("serverForm.replacePlaceholder", { key }));
     }
   }
 }
@@ -290,15 +288,15 @@ export function isCrashedStatus(st: string): boolean {
 export function statusLabel(st: string): string {
   switch (st) {
     case "running":
-      return "Running";
+      return t("status.running");
     case "stopped":
-      return "Stopped";
+      return t("status.stopped");
     case "starting":
-      return "Starting";
+      return t("status.starting");
     case "restarting":
-      return "Restarting";
+      return t("status.restarting");
     case "error":
-      return "Crashed";
+      return t("status.error");
     default:
       return st;
   }

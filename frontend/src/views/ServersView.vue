@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import {
   NAlert,
@@ -30,6 +31,7 @@ import {
 
 const DISMISS_KEY = "mcp_hoster_onboarding_dismissed";
 
+const { t } = useI18n();
 const servers = useServersStore();
 const auth = useAuthStore();
 const ui = useUiStore();
@@ -93,7 +95,7 @@ async function act(id: string, action: "start" | "stop" | "restart") {
 }
 
 async function copy(url: string) {
-  if (await copyText(url)) message.success("Copied");
+  if (await copyText(url)) message.success(t("common.copied"));
 }
 
 function launcherOf(s: ServerWithRuntime): string {
@@ -134,12 +136,16 @@ function openServer(id: string, tab?: string) {
   <div>
     <div class="page-head">
       <div>
-        <h1>Servers</h1>
+        <h1>{{ t("servers.title") }}</h1>
         <p class="page-sub">
-          {{ servers.servers.length }} configured ·
-          {{ servers.runningCount }} running
+          {{
+            t("servers.configuredRunning", {
+              configured: servers.servers.length,
+              running: servers.runningCount,
+            })
+          }}
           <span class="live" :class="{ on: servers.live }">
-            {{ servers.live ? "· live" : "· reconnecting…" }}
+            {{ servers.live ? t("servers.live") : t("servers.reconnecting") }}
           </span>
         </p>
       </div>
@@ -172,12 +178,15 @@ function openServer(id: string, tab?: string) {
 
     <div v-else-if="!servers.servers.length" class="empty-hint">
       <NText depth="3">
-        No servers configured yet — use the checklist above, or jump straight
-        in.
+        {{ t("servers.empty") }}
       </NText>
       <NSpace style="margin-top: 0.75rem">
-        <NButton type="primary" @click="ui.openAdd()">Add server</NButton>
-        <NButton @click="router.push('/library')">Browse library</NButton>
+        <NButton type="primary" @click="ui.openAdd()">
+          {{ t("servers.addServer") }}
+        </NButton>
+        <NButton @click="router.push('/library')">
+          {{ t("servers.browseLibrary") }}
+        </NButton>
       </NSpace>
     </div>
 
@@ -218,7 +227,7 @@ function openServer(id: string, tab?: string) {
                 quaternary
                 @click="copy(serverGatewayUrl(servers.gatewayUrl, s.id))"
               >
-                Copy
+                {{ t("common.copy") }}
               </NButton>
             </div>
 
@@ -227,7 +236,7 @@ function openServer(id: string, tab?: string) {
                 {{ launcherOf(s) }}
               </NTag>
               <NTag size="small" :bordered="false">
-                {{ s.toolCount ?? 0 }} tools
+                {{ t("servers.toolsCount", { count: s.toolCount ?? 0 }) }}
               </NTag>
               <NTag
                 v-if="disabledCount(s)"
@@ -235,37 +244,41 @@ function openServer(id: string, tab?: string) {
                 :bordered="false"
                 type="warning"
               >
-                {{ disabledCount(s) }} off
+                {{ t("servers.offCount", { count: disabledCount(s) }) }}
               </NTag>
               <NTag v-if="versionLabel(s)" size="small" :bordered="false">
                 {{ versionLabel(s) }}
               </NTag>
               <NTag v-if="envCount(s)" size="small" :bordered="false">
-                {{ envCount(s) }} env
+                {{ t("servers.envCount", { count: envCount(s) }) }}
               </NTag>
               <NTag v-if="s.enabled === false" size="small" type="warning" :bordered="false">
-                disabled
+                {{ t("servers.disabled") }}
               </NTag>
             </NSpace>
 
             <div class="details">
               <NText v-if="formatWhen(s.runtime?.lastStartedAt)" depth="3">
-                Started {{ formatWhen(s.runtime?.lastStartedAt) }}
+                {{
+                  t("servers.startedAt", {
+                    when: formatWhen(s.runtime?.lastStartedAt),
+                  })
+                }}
               </NText>
-              <NText v-else depth="3">Never started</NText>
+              <NText v-else depth="3">{{ t("servers.neverStarted") }}</NText>
               <NText
                 v-if="s.runtime?.pid"
                 depth="3"
                 class="detail-sep"
               >
-                · pid {{ s.runtime.pid }}
+                {{ t("servers.pid", { pid: s.runtime.pid }) }}
               </NText>
               <NText
                 v-if="(s.runtime?.restartCount ?? 0) > 0"
                 depth="3"
                 class="detail-sep"
               >
-                · {{ s.runtime?.restartCount }} restarts
+                {{ t("servers.restarts", { count: s.runtime?.restartCount }) }}
               </NText>
             </div>
 
@@ -282,7 +295,7 @@ function openServer(id: string, tab?: string) {
                 secondary
                 @click="openServer(s.id, 'logs')"
               >
-                Logs
+                {{ t("servers.logs") }}
               </NButton>
             </div>
           </div>
@@ -290,7 +303,7 @@ function openServer(id: string, tab?: string) {
           <template #action>
             <NSpace class="card-actions">
               <NButton size="small" @click="openServer(s.id)">
-                Configure
+                {{ t("servers.configure") }}
               </NButton>
               <NButton
                 v-if="isActiveStatus(statusOf(s))"
@@ -298,7 +311,7 @@ function openServer(id: string, tab?: string) {
                 :loading="servers.busyIds[s.id]"
                 @click="act(s.id, 'stop')"
               >
-                Stop
+                {{ t("common.stop") }}
               </NButton>
               <NButton
                 v-else
@@ -308,7 +321,7 @@ function openServer(id: string, tab?: string) {
                 :loading="servers.busyIds[s.id]"
                 @click="act(s.id, 'start')"
               >
-                Start
+                {{ t("common.start") }}
               </NButton>
               <NButton
                 v-if="isActiveStatus(statusOf(s))"
@@ -316,7 +329,7 @@ function openServer(id: string, tab?: string) {
                 :loading="servers.busyIds[s.id]"
                 @click="act(s.id, 'restart')"
               >
-                Restart
+                {{ t("common.restart") }}
               </NButton>
             </NSpace>
           </template>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import {
   NAlert,
@@ -24,6 +25,7 @@ import { useServersStore } from "../stores/servers";
 import type { ApiKey, ScopeGrant } from "../types";
 import { copyText } from "../utils/serverForm";
 
+const { t } = useI18n();
 const auth = useAuthStore();
 const servers = useServersStore();
 const message = useMessage();
@@ -125,11 +127,11 @@ function openCreate(mode: "user" | "tenant") {
 
 async function submitCreate() {
   if (!form.name.trim()) {
-    message.warning("Name is required");
+    message.warning(t("keys.nameRequired"));
     return;
   }
   if (!form.scopes.length) {
-    message.warning("Add at least one scope");
+    message.warning(t("keys.scopeRequired"));
     return;
   }
   creating.value = true;
@@ -146,7 +148,7 @@ async function submitCreate() {
         });
     revealedSecret.value = result.secret;
     revealedKeyId.value = result.key.id;
-    message.success("API key created");
+    message.success(t("keys.createdToast"));
     await refresh();
   } catch (err) {
     message.error(err instanceof Error ? err.message : String(err));
@@ -157,15 +159,15 @@ async function submitCreate() {
 
 function revoke(key: ApiKey, kind: "user" | "tenant") {
   dialog.warning({
-    title: "Revoke API key?",
-    content: `Revoke “${key.name}” (${key.keyPrefix}…)? Clients using it will lose access.`,
-    positiveText: "Revoke",
-    negativeText: "Cancel",
+    title: t("keys.revokeTitle"),
+    content: t("keys.revokeContent", { name: key.name, prefix: key.keyPrefix }),
+    positiveText: t("keys.revoke"),
+    negativeText: t("common.cancel"),
     onPositiveClick: async () => {
       try {
         if (kind === "tenant") await auth.revokeTenantKey(key.id);
         else await auth.revokeMyKey(key.id);
-        message.success("Revoked");
+        message.success(t("keys.revokedToast"));
         await refresh();
       } catch (err) {
         message.error(err instanceof Error ? err.message : String(err));
@@ -176,17 +178,17 @@ function revoke(key: ApiKey, kind: "user" | "tenant") {
 
 async function copySecret() {
   if (!revealedSecret.value) return;
-  if (await copyText(revealedSecret.value)) message.success("Copied");
+  if (await copyText(revealedSecret.value)) message.success(t("keys.copied"));
 }
 
 async function copyPrefix(key: ApiKey) {
-  if (await copyText(key.keyPrefix)) message.success("Prefix copied");
+  if (await copyText(key.keyPrefix)) message.success(t("keys.prefixCopied"));
 }
 
 function scopesLabel(scopes: ScopeGrant[]): string {
-  if (!scopes.length) return "No scopes";
+  if (!scopes.length) return t("keys.noScopes");
   if (scopes.some((g) => g.serverId === "*" && g.tools.includes("*"))) {
-    return "Full access";
+    return t("keys.fullAccess");
   }
   return scopes
     .map((g) =>
@@ -198,10 +200,10 @@ function scopesLabel(scopes: ScopeGrant[]): string {
 function scopeTags(scopes: ScopeGrant[]): string[] {
   if (!scopes.length) return [];
   if (scopes.some((g) => g.serverId === "*" && g.tools.includes("*"))) {
-    return ["full access"];
+    return [t("keys.fullAccessTag")];
   }
   return scopes.map((g) =>
-    `${g.serverId}:${g.tools.includes("*") ? "*" : g.tools.length + " tools"}`,
+    `${g.serverId}:${g.tools.includes("*") ? "*" : t("keys.toolsCount", { count: g.tools.length })}`,
   );
 }
 
@@ -235,32 +237,32 @@ function onCreateClick() {
   <div>
     <div class="page-head">
       <div>
-        <h1>API keys</h1>
+        <h1>{{ t("keys.title") }}</h1>
         <p class="page-sub">
-          Keys authenticate MCP clients. Scope them down for each task.
+          {{ t("keys.subtitle") }}
         </p>
       </div>
       <NSpace>
         <NButton type="primary" @click="onCreateClick">
-          {{ tab === "tenant" ? "Create tenant key" : "Create key" }}
+          {{ tab === "tenant" ? t("keys.createTenantKey") : t("keys.createKey") }}
         </NButton>
         <NButton
           v-if="auth.can('keys:tenant') && tab === 'mine'"
           @click="openCreate('tenant')"
         >
-          Create tenant key
+          {{ t("keys.createTenantKey") }}
         </NButton>
       </NSpace>
     </div>
 
     <NAlert type="info" :bordered="false" style="margin-bottom: 1rem">
-      Use
+      {{ t("keys.bearerLead") }}
       <code>Authorization: Bearer mch_…</code>
-      against
+      {{ t("keys.bearerAgainst") }}
       <code>{{ servers.gatewayUrl }}</code>.
-      Personal keys cannot exceed your grant ceiling
+      {{ t("keys.bearerCeiling") }}
       <template v-if="auth.can('keys:tenant')">
-        ; tenant keys can cover the whole host.
+        {{ t("keys.tenantSuffix") }}
       </template>
       .
     </NAlert>
@@ -268,7 +270,7 @@ function onCreateClick() {
     <GrantsCeilingHint
       :grants="ceiling"
       :unrestricted="auth.can('mcp:full')"
-      label="Your grant ceiling"
+      :label="t('keys.grantCeiling')"
       style="margin-bottom: 1rem"
     />
 
@@ -279,7 +281,7 @@ function onCreateClick() {
         :class="{ active: statusFilter === 'active' }"
         @click="statusFilter = 'active'"
       >
-        Active
+        {{ t("keys.filterActive") }}
       </button>
       <button
         type="button"
@@ -287,7 +289,7 @@ function onCreateClick() {
         :class="{ active: statusFilter === 'revoked' }"
         @click="statusFilter = 'revoked'"
       >
-        Revoked
+        {{ t("keys.filterRevoked") }}
       </button>
       <button
         type="button"
@@ -295,20 +297,20 @@ function onCreateClick() {
         :class="{ active: statusFilter === 'all' }"
         @click="statusFilter = 'all'"
       >
-        All
+        {{ t("keys.filterAll") }}
       </button>
     </div>
 
     <NTabs v-model:value="tab" type="line" animated>
-      <NTabPane name="mine" :tab="`My keys (${tabCount('mine')})`">
+      <NTabPane name="mine" :tab="t('keys.myKeys', { count: tabCount('mine') })">
         <NEmpty
           v-if="!loading && !myKeys.length"
-          description="No personal keys yet"
+          :description="t('keys.noPersonalKeys')"
           style="margin-top: 1.5rem"
         >
           <template #extra>
             <NButton type="primary" @click="openCreate('user')">
-              Create key
+              {{ t("keys.createKey") }}
             </NButton>
           </template>
         </NEmpty>
@@ -316,13 +318,13 @@ function onCreateClick() {
           v-else-if="!loading && !visibleMyKeys.length"
           :description="
             statusFilter === 'revoked'
-              ? 'No revoked personal keys'
-              : 'No active personal keys'
+              ? t('keys.noRevokedPersonal')
+              : t('keys.noActivePersonal')
           "
           style="margin-top: 1.5rem"
         >
           <template v-if="statusFilter !== 'all'" #extra>
-            <NButton @click="statusFilter = 'all'">Show all</NButton>
+            <NButton @click="statusFilter = 'all'">{{ t("keys.showAll") }}</NButton>
           </template>
         </NEmpty>
         <div v-else class="cards">
@@ -345,10 +347,10 @@ function onCreateClick() {
                   type="error"
                   :bordered="false"
                 >
-                  Revoked
+                  {{ t("keys.revoked") }}
                 </NTag>
                 <NTag v-else size="small" type="success" :bordered="false">
-                  Active
+                  {{ t("keys.active") }}
                 </NTag>
               </template>
               <template #description>
@@ -371,20 +373,20 @@ function onCreateClick() {
                 </NText>
                 <div class="dates">
                   <NText depth="3">
-                    Created {{ formatWhen(key.createdAt) }}
+                    {{ t("keys.created", { when: formatWhen(key.createdAt) }) }}
                   </NText>
                   <NText v-if="key.lastUsedAt" depth="3" class="detail-sep">
-                    · Last used {{ formatWhen(key.lastUsedAt) }}
+                    {{ t("keys.lastUsed", { when: formatWhen(key.lastUsedAt) }) }}
                   </NText>
                   <NText v-else depth="3" class="detail-sep">
-                    · Never used
+                    {{ t("keys.neverUsed") }}
                   </NText>
                   <NText
                     v-if="key.expiresAt"
                     depth="3"
                     class="detail-sep"
                   >
-                    · Expires {{ formatWhen(key.expiresAt) }}
+                    {{ t("keys.expires", { when: formatWhen(key.expiresAt) }) }}
                   </NText>
                 </div>
               </div>
@@ -396,10 +398,10 @@ function onCreateClick() {
                     :disabled="!!key.revokedAt"
                     @click="goConnect(key)"
                   >
-                    Connect
+                    {{ t("keys.connect") }}
                   </NButton>
                   <NButton size="small" quaternary @click="copyPrefix(key)">
-                    Copy prefix
+                    {{ t("keys.copyPrefix") }}
                   </NButton>
                   <NButton
                     size="small"
@@ -408,7 +410,7 @@ function onCreateClick() {
                     :disabled="!!key.revokedAt"
                     @click="revoke(key, 'user')"
                   >
-                    Revoke
+                    {{ t("keys.revoke") }}
                   </NButton>
                 </NSpace>
               </template>
@@ -420,16 +422,16 @@ function onCreateClick() {
       <NTabPane
         v-if="auth.can('keys:tenant')"
         name="tenant"
-        :tab="`Tenant keys (${tabCount('tenant')})`"
+        :tab="t('keys.tenantKeys', { count: tabCount('tenant') })"
       >
         <NEmpty
           v-if="!loading && !tenantKeys.length"
-          description="No tenant keys yet"
+          :description="t('keys.noTenantKeys')"
           style="margin-top: 1.5rem"
         >
           <template #extra>
             <NButton type="primary" @click="openCreate('tenant')">
-              Create tenant key
+              {{ t("keys.createTenantKey") }}
             </NButton>
           </template>
         </NEmpty>
@@ -437,13 +439,13 @@ function onCreateClick() {
           v-else-if="!loading && !visibleTenantKeys.length"
           :description="
             statusFilter === 'revoked'
-              ? 'No revoked tenant keys'
-              : 'No active tenant keys'
+              ? t('keys.noRevokedTenant')
+              : t('keys.noActiveTenant')
           "
           style="margin-top: 1.5rem"
         >
           <template v-if="statusFilter !== 'all'" #extra>
-            <NButton @click="statusFilter = 'all'">Show all</NButton>
+            <NButton @click="statusFilter = 'all'">{{ t("keys.showAll") }}</NButton>
           </template>
         </NEmpty>
         <div v-else class="cards">
@@ -462,7 +464,7 @@ function onCreateClick() {
               <template #header-extra>
                 <NSpace :size="6">
                   <NTag size="small" type="warning" :bordered="false">
-                    Tenant
+                    {{ t("keys.tenant") }}
                   </NTag>
                   <NTag
                     v-if="key.revokedAt"
@@ -470,10 +472,10 @@ function onCreateClick() {
                     type="error"
                     :bordered="false"
                   >
-                    Revoked
+                    {{ t("keys.revoked") }}
                   </NTag>
                   <NTag v-else size="small" type="success" :bordered="false">
-                    Active
+                    {{ t("keys.active") }}
                   </NTag>
                 </NSpace>
               </template>
@@ -497,20 +499,20 @@ function onCreateClick() {
                 </NText>
                 <div class="dates">
                   <NText depth="3">
-                    Created {{ formatWhen(key.createdAt) }}
+                    {{ t("keys.created", { when: formatWhen(key.createdAt) }) }}
                   </NText>
                   <NText v-if="key.lastUsedAt" depth="3" class="detail-sep">
-                    · Last used {{ formatWhen(key.lastUsedAt) }}
+                    {{ t("keys.lastUsed", { when: formatWhen(key.lastUsedAt) }) }}
                   </NText>
                   <NText v-else depth="3" class="detail-sep">
-                    · Never used
+                    {{ t("keys.neverUsed") }}
                   </NText>
                   <NText
                     v-if="key.expiresAt"
                     depth="3"
                     class="detail-sep"
                   >
-                    · Expires {{ formatWhen(key.expiresAt) }}
+                    {{ t("keys.expires", { when: formatWhen(key.expiresAt) }) }}
                   </NText>
                 </div>
               </div>
@@ -522,10 +524,10 @@ function onCreateClick() {
                     :disabled="!!key.revokedAt"
                     @click="goConnect(key)"
                   >
-                    Connect
+                    {{ t("keys.connect") }}
                   </NButton>
                   <NButton size="small" quaternary @click="copyPrefix(key)">
-                    Copy prefix
+                    {{ t("keys.copyPrefix") }}
                   </NButton>
                   <NButton
                     size="small"
@@ -534,7 +536,7 @@ function onCreateClick() {
                     :disabled="!!key.revokedAt"
                     @click="revoke(key, 'tenant')"
                   >
-                    Revoke
+                    {{ t("keys.revoke") }}
                   </NButton>
                 </NSpace>
               </template>
@@ -547,13 +549,13 @@ function onCreateClick() {
     <NModal
       v-model:show="createOpen"
       preset="card"
-      :title="createMode === 'tenant' ? 'Create tenant API key' : 'Create API key'"
+      :title="createMode === 'tenant' ? t('keys.createTenantApiKey') : t('keys.createApiKey')"
       style="width: min(560px, 96vw)"
       :mask-closable="!revealedSecret"
     >
       <div v-if="revealedSecret" class="reveal">
         <NAlert type="warning" :bordered="false">
-          Copy this secret now — it will not be shown again.
+          {{ t("keys.secretWarning") }}
         </NAlert>
         <NInput
           class="secret"
@@ -563,7 +565,7 @@ function onCreateClick() {
           :autosize="{ minRows: 2, maxRows: 4 }"
         />
         <NSpace justify="end">
-          <NButton @click="copySecret">Copy</NButton>
+          <NButton @click="copySecret">{{ t("common.copy") }}</NButton>
           <NButton
             v-if="revealedKeyId"
             @click="
@@ -574,29 +576,29 @@ function onCreateClick() {
               });
             "
           >
-            Use in Connect
+            {{ t("keys.useInConnect") }}
           </NButton>
-          <NButton type="primary" @click="createOpen = false">Done</NButton>
+          <NButton type="primary" @click="createOpen = false">{{ t("keys.done") }}</NButton>
         </NSpace>
       </div>
       <div v-else>
         <label class="field">
-          <span>Name</span>
-          <NInput v-model:value="form.name" placeholder="Cursor laptop" />
+          <span>{{ t("keys.name") }}</span>
+          <NInput v-model:value="form.name" :placeholder="t('keys.namePlaceholder')" />
         </label>
         <div class="field">
-          <span>Scopes</span>
+          <span>{{ t("keys.scopes") }}</span>
           <GrantsCeilingHint
             v-if="createMode === 'user'"
             :grants="ceiling"
             :unrestricted="auth.can('mcp:full')"
-            label="You can grant up to"
+            :label="t('keys.grantUpTo')"
           />
           <GrantsCeilingHint
             v-else
             :grants="[]"
             unrestricted
-            label="Tenant key ceiling"
+            :label="t('keys.tenantCeiling')"
           />
           <ScopeEditor
             v-model="form.scopes"
@@ -606,9 +608,9 @@ function onCreateClick() {
           />
         </div>
         <NSpace justify="end" style="margin-top: 1rem">
-          <NButton @click="createOpen = false">Cancel</NButton>
+          <NButton @click="createOpen = false">{{ t("common.cancel") }}</NButton>
           <NButton type="primary" :loading="creating" @click="submitCreate">
-            Create
+            {{ t("common.create") }}
           </NButton>
         </NSpace>
       </div>

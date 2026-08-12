@@ -1,0 +1,20 @@
+export default {
+  title: "Servidores",
+  configuredRunning: "{configured} configurados · {running} en ejecución",
+  live: "· en vivo",
+  reconnecting: "· reconectando…",
+  empty:
+    "Aún no hay servidores configurados: usa la lista de verificación de arriba o empieza directamente.",
+  addServer: "Añadir servidor",
+  browseLibrary: "Explorar biblioteca",
+  toolsCount: "{count} herramientas",
+  offCount: "{count} desactivadas",
+  envCount: "{count} env",
+  disabled: "desactivado",
+  startedAt: "Iniciado {when}",
+  neverStarted: "Nunca iniciado",
+  pid: "· pid {pid}",
+  restarts: "· {count} reinicios",
+  logs: "Registros",
+  configure: "Configurar",
+} as const;

@@ -28,7 +28,6 @@
     "HOST_PORT": "8080",
     "DATA_DIR": "/workspaces/mcp_hoster/data",
     "DATABASE_URL": "sqlite:///workspaces/mcp_hoster/data/mcp-hoster.db",
-    "SEED_PATH": "/workspaces/mcp_hoster/seed.example.json",
     "MIGRATIONS_DIR": "/workspaces/mcp_hoster/migrations",
     "GATEWAY_PUBLIC_URL": "",
     "AUTH_ALLOW_OPEN": "1"

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import {
   NAlert,
@@ -18,6 +19,7 @@ import { useAuthStore } from "../stores/auth";
 import { useThemeStore } from "../stores/theme";
 import type { OAuthProvider, ScopeGrant } from "../types";
 
+const { t } = useI18n();
 const auth = useAuthStore();
 const theme = useThemeStore();
 const route = useRoute();
@@ -57,7 +59,7 @@ async function accept() {
       password: password.value,
       displayName: displayName.value.trim() || null,
     });
-    message.success("Welcome — next, connect a client");
+    message.success(t("invite.welcome"));
     await router.replace("/connect");
   } catch (err) {
     message.error(err instanceof Error ? err.message : String(err));
@@ -70,14 +72,14 @@ async function accept() {
 <template>
   <div class="shell" :class="{ dark: theme.isDark }">
     <NCard class="card" size="large">
-      <h1>Accept invite</h1>
+      <h1>{{ t("invite.title") }}</h1>
       <NSpin v-if="loading" />
       <NAlert v-else-if="errorMsg" type="error" :bordered="false">
         {{ errorMsg }}
       </NAlert>
       <template v-else>
         <NText depth="3">
-          You’re invited as <strong>{{ role }}</strong> —
+          {{ t("invite.invitedAs", { role }) }}
           <code>{{ email }}</code>
         </NText>
 
@@ -100,16 +102,16 @@ async function accept() {
               })
             "
           >
-            Join with {{ p.label }}
+            {{ t("invite.joinWith", { provider: p.label }) }}
           </NButton>
-          <NDivider style="margin: 0.25rem 0">or set a password</NDivider>
+          <NDivider style="margin: 0.25rem 0">{{ t("invite.orPassword") }}</NDivider>
         </NSpace>
 
         <NForm style="margin-top: 1rem" @submit.prevent="accept">
-          <NFormItem label="Display name">
+          <NFormItem :label="t('invite.displayName')">
             <NInput v-model:value="displayName" />
           </NFormItem>
-          <NFormItem label="Password">
+          <NFormItem :label="t('invite.password')">
             <NInput
               v-model:value="password"
               type="password"
@@ -124,7 +126,7 @@ async function accept() {
             :disabled="password.length < 8"
             block
           >
-            Create account
+            {{ t("invite.createAccount") }}
           </NButton>
         </NForm>
       </template>

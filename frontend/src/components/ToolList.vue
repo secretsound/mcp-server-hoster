@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import {
   NButton,
   NCard,
@@ -30,6 +31,7 @@ const emit = defineEmits<{
   "set-all-enabled": [enabled: boolean];
 }>();
 
+const { t } = useI18n();
 const message = useMessage();
 const query = ref("");
 const openId = ref<string | null>(null);
@@ -37,8 +39,8 @@ const filter = ref<"all" | "enabled" | "disabled">("all");
 
 type ArgInfo = { name: string; required: boolean; type: string };
 
-function isEnabled(t: ToolInfo): boolean {
-  return t.enabled !== false;
+function isEnabled(tool: ToolInfo): boolean {
+  return tool.enabled !== false;
 }
 
 function argsFromSchema(schema: unknown): ArgInfo[] {
@@ -50,26 +52,36 @@ function argsFromSchema(schema: unknown): ArgInfo[] {
   const propsMap = s.properties ?? {};
   const required = new Set(s.required ?? []);
   return Object.keys(propsMap).map((name) => {
-    const t = propsMap[name]?.type;
-    const type = Array.isArray(t) ? t.join("|") : (t || "any");
+    const typ = propsMap[name]?.type;
+    const type = Array.isArray(typ) ? typ.join("|") : (typ || "any");
     return { name, required: required.has(name), type };
   });
 }
 
 const enabledCount = computed(
-  () => props.tools.filter((t) => isEnabled(t)).length,
+  () => props.tools.filter((tool) => isEnabled(tool)).length,
 );
 const disabledCount = computed(
   () => props.tools.length - enabledCount.value,
 );
 
+const titleLabel = computed(() => {
+  if (disabledCount.value) {
+    return t("tools.titlePartial", {
+      enabled: enabledCount.value,
+      disabled: disabledCount.value,
+    });
+  }
+  return t("tools.titleCount", { count: props.tools.length });
+});
+
 const filtered = computed(() => {
   const q = query.value.trim().toLowerCase();
-  return props.tools.filter((t) => {
-    if (filter.value === "enabled" && !isEnabled(t)) return false;
-    if (filter.value === "disabled" && isEnabled(t)) return false;
+  return props.tools.filter((tool) => {
+    if (filter.value === "enabled" && !isEnabled(tool)) return false;
+    if (filter.value === "disabled" && isEnabled(tool)) return false;
     if (!q) return true;
-    const hay = `${t.name} ${t.namespacedName} ${t.description || ""}`
+    const hay = `${tool.name} ${tool.namespacedName} ${tool.description || ""}`
       .toLowerCase();
     return hay.includes(q);
   });
@@ -80,11 +92,11 @@ function toggle(id: string) {
 }
 
 async function copyName(name: string) {
-  if (await copyText(name)) message.success("Copied tool name");
+  if (await copyText(name)) message.success(t("tools.copiedName"));
 }
 
-function onSwitch(t: ToolInfo, enabled: boolean) {
-  emit("set-enabled", { name: t.name, enabled });
+function onSwitch(tool: ToolInfo, enabled: boolean) {
+  emit("set-enabled", { name: tool.name, enabled });
 }
 </script>
 
@@ -92,17 +104,12 @@ function onSwitch(t: ToolInfo, enabled: boolean) {
   <NCard size="small" :bordered="true">
     <template #header>
       <NSpace justify="space-between" align="center">
-        <span>
-          <template v-if="disabledCount">
-            Tools ({{ enabledCount }} on · {{ disabledCount }} off)
-          </template>
-          <template v-else>Tools ({{ tools.length }})</template>
-        </span>
+        <span>{{ titleLabel }}</span>
         <NButton size="tiny" quaternary :loading="loading" @click="emit('refresh')">
           <template #icon>
             <NIcon :component="RefreshOutline" />
           </template>
-          Refresh
+          {{ t("common.refresh") }}
         </NButton>
       </NSpace>
     </template>
@@ -112,8 +119,7 @@ function onSwitch(t: ToolInfo, enabled: boolean) {
       depth="3"
       style="display: block; margin-bottom: 0.65rem; font-size: 0.85rem"
     >
-      Turn off tools you don’t want exposed on MCP. Disabled tools stay hidden
-      until you turn them back on — no restart needed.
+      {{ t("tools.help") }}
     </NText>
 
     <div v-if="tools.length" class="toolbar">
@@ -121,7 +127,7 @@ function onSwitch(t: ToolInfo, enabled: boolean) {
         v-model:value="query"
         size="small"
         clearable
-        placeholder="Search tools…"
+        :placeholder="t('tools.searchPlaceholder')"
         style="flex: 1; min-width: 10rem"
       />
       <NSpace :size="6">
@@ -131,7 +137,7 @@ function onSwitch(t: ToolInfo, enabled: boolean) {
           secondary
           @click="filter = 'all'"
         >
-          All
+          {{ t("common.all") }}
         </NButton>
         <NButton
           size="tiny"
@@ -139,7 +145,7 @@ function onSwitch(t: ToolInfo, enabled: boolean) {
           secondary
           @click="filter = 'enabled'"
         >
-          On
+          {{ t("tools.on") }}
         </NButton>
         <NButton
           size="tiny"
@@ -147,7 +153,7 @@ function onSwitch(t: ToolInfo, enabled: boolean) {
           secondary
           @click="filter = 'disabled'"
         >
-          Off
+          {{ t("tools.off") }}
         </NButton>
       </NSpace>
       <NSpace v-if="canEdit" :size="6">
@@ -157,7 +163,7 @@ function onSwitch(t: ToolInfo, enabled: boolean) {
           :disabled="busy || enabledCount === tools.length"
           @click="emit('set-all-enabled', true)"
         >
-          Enable all
+          {{ t("tools.enableAll") }}
         </NButton>
         <NButton
           size="tiny"
@@ -165,59 +171,59 @@ function onSwitch(t: ToolInfo, enabled: boolean) {
           :disabled="busy || disabledCount === tools.length"
           @click="emit('set-all-enabled', false)"
         >
-          Disable all
+          {{ t("tools.disableAll") }}
         </NButton>
       </NSpace>
     </div>
 
     <NEmpty
       v-if="!tools.length"
-      description="No tools — is the server running?"
+      :description="t('tools.emptyRunning')"
       size="small"
     />
     <NEmpty
       v-else-if="!filtered.length"
-      description="No tools match"
+      :description="t('tools.noMatch')"
       size="small"
     />
     <div v-else class="list">
       <div
-        v-for="t in filtered"
-        :key="t.namespacedName"
+        v-for="tool in filtered"
+        :key="tool.namespacedName"
         class="tool"
-        :class="{ open: openId === t.namespacedName, off: !isEnabled(t) }"
+        :class="{ open: openId === tool.namespacedName, off: !isEnabled(tool) }"
       >
-        <button type="button" class="tool-head" @click="toggle(t.namespacedName)">
-          <code class="name">{{ t.name }}</code>
-          <NText depth="3" class="ns">{{ t.namespacedName }}</NText>
+        <button type="button" class="tool-head" @click="toggle(tool.namespacedName)">
+          <code class="name">{{ tool.name }}</code>
+          <NText depth="3" class="ns">{{ tool.namespacedName }}</NText>
         </button>
         <NSpace :size="6" align="center" class="tool-actions">
           <NSwitch
             v-if="canEdit"
             size="small"
-            :value="isEnabled(t)"
+            :value="isEnabled(tool)"
             :disabled="busy"
-            @update:value="(v: boolean) => onSwitch(t, v)"
+            @update:value="(v: boolean) => onSwitch(tool, v)"
           />
           <NTag
-            v-else-if="!isEnabled(t)"
+            v-else-if="!isEnabled(tool)"
             size="tiny"
             :bordered="false"
             type="warning"
           >
-            Off
+            {{ t("tools.off") }}
           </NTag>
-          <NButton size="tiny" quaternary @click="copyName(t.name)">
-            Copy
+          <NButton size="tiny" quaternary @click="copyName(tool.name)">
+            {{ t("common.copy") }}
           </NButton>
         </NSpace>
-        <div v-if="openId === t.namespacedName" class="tool-body">
-          <p class="desc">{{ t.description || "No description" }}</p>
-          <div v-if="argsFromSchema(t.inputSchema).length" class="args">
-            <NText depth="3" class="args-label">Arguments</NText>
+        <div v-if="openId === tool.namespacedName" class="tool-body">
+          <p class="desc">{{ tool.description || t("tools.noDescription") }}</p>
+          <div v-if="argsFromSchema(tool.inputSchema).length" class="args">
+            <NText depth="3" class="args-label">{{ t("tools.arguments") }}</NText>
             <div class="arg-row">
               <NTag
-                v-for="a in argsFromSchema(t.inputSchema)"
+                v-for="a in argsFromSchema(tool.inputSchema)"
                 :key="a.name"
                 size="small"
                 :type="a.required ? 'warning' : 'default'"
@@ -225,12 +231,16 @@ function onSwitch(t: ToolInfo, enabled: boolean) {
               >
                 {{ a.name }}
                 <span class="arg-meta">
-                  · {{ a.type }} · {{ a.required ? "required" : "optional" }}
+                  {{
+                    a.required
+                      ? t("tools.argMetaRequired", { type: a.type })
+                      : t("tools.argMetaOptional", { type: a.type })
+                  }}
                 </span>
               </NTag>
             </div>
           </div>
-          <NText v-else depth="3" class="no-args">No arguments</NText>
+          <NText v-else depth="3" class="no-args">{{ t("tools.noArguments") }}</NText>
         </div>
       </div>
     </div>

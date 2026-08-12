@@ -30,7 +30,7 @@ export async function buildHealthChecks(input: {
       ok: false,
       severity: "warning",
       message:
-        "GATEWAY_PUBLIC_URL is unset while listening on 0.0.0.0 — remote clients may need an explicit public /mcp URL.",
+        "MCP public URL is unset while listening on 0.0.0.0 — set Site URL (or MCP public URL) under Settings → Host.",
     });
   } else {
     checks.push({
@@ -47,14 +47,14 @@ export async function buildHealthChecks(input: {
       ok: false,
       severity: "error",
       message:
-        "OAuth providers are enabled but Public URL is empty — set it under Settings → Authentication (or HOST_PUBLIC_URL).",
+        "SSO is enabled but Site URL is empty — set it under Settings → Host (or HOST_PUBLIC_URL).",
     });
   } else if (enabledOauth.length) {
     checks.push({
       id: "oauth_public_url",
       ok: true,
       severity: "info",
-      message: `OAuth public URL: ${publicUrl}`,
+      message: `SSO site URL: ${publicUrl}`,
     });
   }
 

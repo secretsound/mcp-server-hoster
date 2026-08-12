@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import {
   NAlert,
@@ -16,6 +17,7 @@ import {
 import { useAuthStore } from "../stores/auth";
 import { useThemeStore } from "../stores/theme";
 
+const { t } = useI18n();
 const auth = useAuthStore();
 const theme = useThemeStore();
 const router = useRouter();
@@ -38,7 +40,7 @@ async function submit() {
   errorMsg.value = "";
   try {
     await auth.login(email.value.trim(), password.value);
-    message.success("Signed in");
+    message.success(t("login.signedIn"));
     const redirect = typeof route.query.redirect === "string"
       ? route.query.redirect
       : "/";
@@ -58,7 +60,7 @@ async function submit() {
         <span class="brand-mark">MH</span>
         <div>
           <h1>MCP Hoster</h1>
-          <NText depth="3">Sign in to manage servers and API keys</NText>
+          <NText depth="3">{{ t("login.subtitle") }}</NText>
         </div>
       </div>
 
@@ -89,22 +91,22 @@ async function submit() {
               : '/ui/',
           })"
         >
-          Continue with {{ p.label }}
+          {{ t("login.continueWith", { provider: p.label }) }}
         </NButton>
-        <NDivider style="margin: 0.4rem 0">or email</NDivider>
+        <NDivider style="margin: 0.4rem 0">{{ t("login.orEmail") }}</NDivider>
       </NSpace>
 
       <NForm @submit.prevent="submit">
-        <NFormItem label="Email" path="email">
+        <NFormItem :label="t('login.email')" path="email">
           <NInput
             v-model:value="email"
             type="text"
             autocomplete="username"
-            placeholder="admin@example.com"
+            :placeholder="t('login.emailPlaceholder')"
             @keydown.enter="submit"
           />
         </NFormItem>
-        <NFormItem label="Password" path="password">
+        <NFormItem :label="t('login.password')" path="password">
           <NInput
             v-model:value="password"
             type="password"
@@ -121,7 +123,7 @@ async function submit() {
             :loading="submitting"
             :disabled="!email.trim() || !password"
           >
-            Sign in
+            {{ t("login.signIn") }}
           </NButton>
         </NSpace>
       </NForm>

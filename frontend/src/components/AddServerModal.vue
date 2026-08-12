@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import {
   NAlert,
@@ -9,13 +10,14 @@ import {
   NText,
   useMessage,
 } from "naive-ui";
-import { TEMPLATES } from "../data/templates";
+import { getTemplates } from "../data/templates";
 import { useServersStore } from "../stores/servers";
 import { useUiStore } from "../stores/ui";
 import type { ServerFormValues } from "../types";
 import { buildCreatePayload } from "../utils/serverForm";
 import ServerFormFields from "./ServerFormFields.vue";
 
+const { t, locale } = useI18n();
 const ui = useUiStore();
 const servers = useServersStore();
 const router = useRouter();
@@ -24,6 +26,11 @@ const submitting = ref(false);
 const formError = ref("");
 const activeTemplate = ref("npx");
 const formNote = ref("");
+
+const templates = computed(() => {
+  void locale.value;
+  return getTemplates();
+});
 
 const form = reactive<ServerFormValues>({
   id: "",
@@ -50,10 +57,11 @@ function applyValues(values: ServerFormValues) {
 }
 
 function applyTemplate(id: string) {
-  const t = TEMPLATES.find((x) => x.id === id) || TEMPLATES[0];
-  activeTemplate.value = t.id;
-  applyValues(t.values);
-  formNote.value = t.note || "";
+  const list = getTemplates();
+  const tmpl = list.find((x) => x.id === id) || list[0];
+  activeTemplate.value = tmpl.id;
+  applyValues(tmpl.values);
+  formNote.value = tmpl.note || "";
   formError.value = "";
 }
 
@@ -66,8 +74,7 @@ watch(
       activeTemplate.value = "";
       applyValues(ui.addPreset);
       formNote.value =
-        ui.addNote ||
-        "Preconfigured from the Library — review env vars, then create.";
+        ui.addNote || t("addServer.libraryPresetNote");
     } else {
       applyTemplate(ui.addTemplateId || "npx");
       if (ui.addNote) formNote.value = ui.addNote;
@@ -76,7 +83,7 @@ watch(
 );
 
 const submitLabel = computed(() =>
-  form.startNow === false ? "Create" : "Create & start",
+  form.startNow === false ? t("addServer.create") : t("addServer.createAndStart"),
 );
 
 async function onSubmit() {
@@ -85,7 +92,7 @@ async function onSubmit() {
   try {
     const body = buildCreatePayload(form);
     const server = await servers.create(body);
-    message.success(`Created ${server.id}`);
+    message.success(t("addServer.created", { id: server.id }));
     ui.closeAdd();
     await router.push(`/servers/${encodeURIComponent(server.id)}`);
   } catch (err) {
@@ -100,7 +107,7 @@ async function onSubmit() {
   <NModal
     :show="ui.addOpen"
     preset="card"
-    title="Add MCP server"
+    :title="t('addServer.title')"
     style="width: min(720px, 96vw)"
     :mask-closable="!submitting"
     @update:show="(v: boolean) => !v && ui.closeAdd()"
@@ -108,14 +115,14 @@ async function onSubmit() {
     <NSpace vertical :size="14">
       <div class="templates">
         <NButton
-          v-for="t in TEMPLATES"
-          :key="t.id"
+          v-for="tmpl in templates"
+          :key="tmpl.id"
           size="small"
-          :type="activeTemplate === t.id ? 'primary' : 'default'"
-          :secondary="activeTemplate === t.id"
-          @click="applyTemplate(t.id)"
+          :type="activeTemplate === tmpl.id ? 'primary' : 'default'"
+          :secondary="activeTemplate === tmpl.id"
+          @click="applyTemplate(tmpl.id)"
         >
-          {{ t.label }}
+          {{ tmpl.label }}
         </NButton>
       </div>
 
@@ -128,7 +135,7 @@ async function onSubmit() {
       <NText v-if="formError" type="error">{{ formError }}</NText>
 
       <NSpace justify="end">
-        <NButton :disabled="submitting" @click="ui.closeAdd()">Cancel</NButton>
+        <NButton :disabled="submitting" @click="ui.closeAdd()">{{ t("common.cancel") }}</NButton>
         <NButton type="primary" :loading="submitting" @click="onSubmit">
           {{ submitLabel }}
         </NButton>

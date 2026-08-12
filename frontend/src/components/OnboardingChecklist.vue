@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { NButton, NCard, NSpace, NTag, NText } from "naive-ui";
 import { useUiStore } from "../stores/ui";
@@ -15,6 +16,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{ dismiss: [] }>();
 
+const { t } = useI18n();
 const router = useRouter();
 const ui = useUiStore();
 
@@ -31,26 +33,26 @@ const steps = computed<Step[]>(() => {
   const list: Step[] = [
     {
       id: "install",
-      title: "Install a server",
-      detail: "Pick a preset from the Library, or add a custom command.",
+      title: t("onboarding.installTitle"),
+      detail: t("onboarding.installDetail"),
       done: props.serversCount > 0,
       primary: {
-        label: "Browse library",
+        label: t("onboarding.browseLibrary"),
         run: () => router.push("/library"),
       },
       secondary: {
-        label: "Add server",
+        label: t("onboarding.addServer"),
         run: () => ui.openAdd(),
       },
     },
     {
       id: "start",
-      title: "Start it",
-      detail: "Running servers advertise tools on the unified /mcp gateway.",
+      title: t("onboarding.startTitle"),
+      detail: t("onboarding.startDetail"),
       done: props.runningCount > 0,
       primary: props.serversCount
         ? {
-          label: "Go to servers",
+          label: t("onboarding.goToServers"),
           run: () => router.push("/"),
         }
         : undefined,
@@ -59,24 +61,24 @@ const steps = computed<Step[]>(() => {
   if (props.authRequired) {
     list.push({
       id: "key",
-      title: "Create an API key",
-      detail: "Mint a scoped key for clients that need Bearer auth (or use OAuth).",
+      title: t("onboarding.keyTitle"),
+      detail: t("onboarding.keyDetail"),
       done: props.keysCount > 0,
       primary: {
-        label: "API keys",
+        label: t("onboarding.apiKeys"),
         run: () => router.push("/keys"),
       },
     });
   }
   list.push({
     id: "connect",
-    title: "Connect a client",
-    detail: "Copy Cursor / Claude / Bifrost snippets with your gateway URL.",
+    title: t("onboarding.connectTitle"),
+    detail: t("onboarding.connectDetail"),
     done: props.serversCount > 0 &&
       props.runningCount > 0 &&
       (!props.authRequired || props.keysCount > 0),
     primary: {
-      label: "Open Connect",
+      label: t("onboarding.openConnect"),
       run: () => router.push("/connect"),
     },
   });
@@ -96,12 +98,17 @@ const allDone = computed(() => doneCount.value === steps.value.length);
   >
     <div class="head">
       <div>
-        <h2>{{ compact ? "Getting started" : "Welcome — get connected" }}</h2>
+        <h2>
+          {{ compact ? t("onboarding.titleCompact") : t("onboarding.titleWelcome") }}
+        </h2>
         <NText depth="3" class="sub">
-          {{ doneCount }} of {{ steps.length }} complete
+          {{ t("onboarding.progress", { done: doneCount, total: steps.length }) }}
           <template v-if="!compact">
-            · Library → start →
-            {{ authRequired ? "key → " : "" }}Connect
+            {{
+              t("onboarding.progressHint", {
+                keyStep: authRequired ? t("onboarding.keyStep") : "",
+              })
+            }}
           </template>
         </NText>
       </div>
@@ -111,7 +118,7 @@ const allDone = computed(() => doneCount.value === steps.value.length);
         quaternary
         @click="emit('dismiss')"
       >
-        Dismiss
+        {{ t("onboarding.dismiss") }}
       </NButton>
     </div>
 
@@ -127,7 +134,7 @@ const allDone = computed(() => doneCount.value === steps.value.length);
             :type="step.done ? 'success' : 'default'"
             :bordered="false"
           >
-            {{ step.done ? "Done" : i + 1 }}
+            {{ step.done ? t("onboarding.done") : i + 1 }}
           </NTag>
         </div>
         <div class="step-body">

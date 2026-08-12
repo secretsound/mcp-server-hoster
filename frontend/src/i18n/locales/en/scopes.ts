@@ -1,0 +1,18 @@
+export default {
+  empty: "No server scopes yet — add one to grant access.",
+  server: "Server",
+  remove: "Remove",
+  allTools: "All tools on this server",
+  loadingTools: "Loading tools…",
+  noTools: "No tools available for this server yet.",
+  quickSelect: "Quick select",
+  allPrefix: "All {prefix}",
+  addServerScope: "Add server scope",
+  allServers: "All servers (*)",
+  allToolsLabel: "all tools",
+  none: "none",
+  noScopes: "no scopes",
+  allServersAllTools: "all servers · all tools",
+  allServersLimitedTools: "all servers · limited tools",
+  nServers: "{n} server | {n} servers",
+} as const;

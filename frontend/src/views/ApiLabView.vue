@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, h, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import {
   NButton,
   NCard,
@@ -18,24 +19,27 @@ import {
 import { CopyOutline } from "@vicons/ionicons5";
 import { NIcon } from "naive-ui";
 import { rawFetch } from "../api/client";
-import { ENDPOINTS, type ApiEndpointExample } from "../data/templates";
+import { getEndpoints, type ApiEndpointExample } from "../data/templates";
 import { copyText } from "../utils/serverForm";
 
+const { t, locale } = useI18n();
 const message = useMessage();
 
 const apiBaseUrl = computed(() => `${window.location.origin}/api`);
+
+const endpoints = computed(() => {
+  void locale.value;
+  return getEndpoints();
+});
 
 const selectedKey = ref("GET /health");
 const method = ref("GET");
 const path = ref("/health");
 const body = ref("");
-const exampleResponse = ref(
-  pretty(ENDPOINTS.find((e) => e.path === "/health")?.sampleResponse) ||
-    "(select an endpoint)",
-);
+const exampleResponse = ref("");
 const labError = ref("");
 const labStatus = ref("");
-const labOut = ref("(send a request to replace this with a live response)");
+const labOut = ref("");
 const sending = ref(false);
 const showingExample = ref(true);
 
@@ -62,16 +66,16 @@ function selectEndpoint(ep: ApiEndpointExample) {
   } else {
     body.value = pretty(ep.sampleBody ?? {});
   }
-  exampleResponse.value = pretty(ep.sampleResponse) || "(no example)";
+  exampleResponse.value = pretty(ep.sampleResponse) || t("apiLab.noExample");
   labOut.value = exampleResponse.value;
-  labStatus.value = "— example";
+  labStatus.value = t("apiLab.exampleStatus");
   labError.value = "";
   showingExample.value = true;
 }
 
-const columns: DataTableColumns<ApiEndpointExample> = [
+const columns = computed<DataTableColumns<ApiEndpointExample>>(() => [
   {
-    title: "Method",
+    title: t("apiLab.method"),
     key: "method",
     width: 88,
     render: (row) =>
@@ -92,16 +96,16 @@ const columns: DataTableColumns<ApiEndpointExample> = [
       ),
   },
   {
-    title: "Path",
+    title: t("apiLab.path"),
     key: "path",
     render: (row) => h("code", { class: "ep-path" }, row.path),
   },
   {
-    title: "Description",
+    title: t("apiLab.description"),
     key: "desc",
     ellipsis: { tooltip: true },
   },
-];
+]);
 
 const rowProps = (row: ApiEndpointExample) => ({
   style: "cursor: pointer",
@@ -110,8 +114,8 @@ const rowProps = (row: ApiEndpointExample) => ({
 });
 
 async function copyApiUrl() {
-  if (await copyText(apiBaseUrl.value)) message.success("API URL copied");
-  else message.error("Could not copy");
+  if (await copyText(apiBaseUrl.value)) message.success(t("apiLab.apiUrlCopied"));
+  else message.error(t("apiLab.copyFailed"));
 }
 
 async function runLab(m: string, p: string, bodyText: string) {
@@ -135,7 +139,7 @@ async function runLab(m: string, p: string, bodyText: string) {
     try {
       labOut.value = JSON.stringify(JSON.parse(res.body), null, 2);
     } catch {
-      labOut.value = res.body || "(empty)";
+      labOut.value = res.body || t("apiLab.empty");
     }
   } catch (err) {
     labError.value = err instanceof Error ? err.message : String(err);
@@ -150,25 +154,26 @@ function onSubmit() {
 }
 
 function showExampleAgain() {
-  const ep = ENDPOINTS.find((e) => endpointKey(e) === selectedKey.value);
+  const ep = endpoints.value.find((e) => endpointKey(e) === selectedKey.value);
   if (!ep) return;
-  labOut.value = pretty(ep.sampleResponse) || "(no example)";
-  labStatus.value = "— example";
+  labOut.value = pretty(ep.sampleResponse) || t("apiLab.noExample");
+  labStatus.value = t("apiLab.exampleStatus");
   labError.value = "";
   showingExample.value = true;
 }
 
 // Seed first endpoint selection
-selectEndpoint(ENDPOINTS[0]!);
+selectEndpoint(getEndpoints()[0]!);
+labOut.value = labOut.value || t("apiLab.sendPlaceholder");
 </script>
 
 <template>
   <div>
     <div class="page-head">
       <div>
-        <h1>API</h1>
+        <h1>{{ t("apiLab.title") }}</h1>
         <p class="page-sub">
-          Admin REST under <code>/api</code> · MCP gateway at <code>/mcp</code>
+          {{ t("apiLab.subtitle") }}
         </p>
       </div>
       <div class="api-pill">
@@ -176,26 +181,26 @@ selectEndpoint(ENDPOINTS[0]!);
           <template #trigger>
             <code class="url">{{ apiBaseUrl }}</code>
           </template>
-          Admin REST API base
+          {{ t("apiLab.adminRestBase") }}
         </NTooltip>
         <NButton size="tiny" quaternary @click="copyApiUrl">
           <template #icon>
             <NIcon :component="CopyOutline" />
           </template>
-          Copy
+          {{ t("apiLab.copy") }}
         </NButton>
       </div>
     </div>
 
     <div class="split-2">
-      <NCard size="small" title="Endpoints">
+      <NCard size="small" :title="t('apiLab.endpoints')">
         <NText depth="3" class="hint">
-          Click a row to load an example request and response in the lab.
+          {{ t("apiLab.endpointsHint") }}
         </NText>
         <NDataTable
           class="ep-table"
           :columns="columns"
-          :data="ENDPOINTS"
+          :data="endpoints"
           :bordered="false"
           size="small"
           :pagination="false"
@@ -203,23 +208,22 @@ selectEndpoint(ENDPOINTS[0]!);
         />
       </NCard>
 
-      <NCard size="small" title="Request lab">
+      <NCard size="small" :title="t('apiLab.requestLab')">
         <NText depth="3" style="display: block; margin-bottom: 0.75rem">
-          Prefills from the selected endpoint. Send runs a live request with
-          your session.
+          {{ t("apiLab.labHint") }}
         </NText>
         <NForm label-placement="top">
           <div class="grid-2">
-            <NFormItem label="Method">
+            <NFormItem :label="t('apiLab.method')">
               <NSelect v-model:value="method" :options="methodOptions" />
             </NFormItem>
-            <NFormItem label="Path">
+            <NFormItem :label="t('apiLab.path')">
               <NInput v-model:value="path" />
             </NFormItem>
           </div>
           <NFormItem
             v-if="method !== 'GET' && method !== 'DELETE'"
-            label="Body"
+            :label="t('apiLab.body')"
           >
             <NInput
               v-model:value="body"
@@ -227,19 +231,19 @@ selectEndpoint(ENDPOINTS[0]!);
               :autosize="{ minRows: 8, maxRows: 16 }"
             />
           </NFormItem>
-          <NFormItem v-else label="Body">
-            <NText depth="3">No body for {{ method }}</NText>
+          <NFormItem v-else :label="t('apiLab.body')">
+            <NText depth="3">{{ t("apiLab.noBody", { method }) }}</NText>
           </NFormItem>
           <NSpace>
             <NButton type="primary" :loading="sending" @click="onSubmit">
-              Send
+              {{ t("apiLab.send") }}
             </NButton>
             <NButton
               v-if="!showingExample"
               :disabled="sending"
               @click="showExampleAgain"
             >
-              Show example
+              {{ t("apiLab.showExample") }}
             </NButton>
           </NSpace>
         </NForm>
@@ -248,7 +252,7 @@ selectEndpoint(ENDPOINTS[0]!);
         </NText>
         <div style="margin-top: 0.85rem">
           <NText depth="3">
-            {{ showingExample ? "Example response" : "Live response" }}
+            {{ showingExample ? t("apiLab.exampleResponse") : t("apiLab.liveResponse") }}
             {{ labStatus }}
           </NText>
           <pre class="code">{{ labOut }}</pre>

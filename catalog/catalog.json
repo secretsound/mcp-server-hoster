@@ -1,0 +1,1204 @@
+{
+  "categories": [
+    {
+      "id": "essentials",
+      "label": "Essentials",
+      "description": "Core hosted tools most gateways start with",
+      "sortOrder": 10
+    },
+    {
+      "id": "apps",
+      "label": "Apps",
+      "description": "Connect to external products and services",
+      "sortOrder": 20
+    },
+    {
+      "id": "developer",
+      "label": "Developer",
+      "description": "Repos, demos, and engineering helpers",
+      "sortOrder": 30
+    },
+    {
+      "id": "web",
+      "label": "Web",
+      "description": "Fetch and work with online content",
+      "sortOrder": 40
+    },
+    {
+      "id": "utilities",
+      "label": "Utilities",
+      "description": "Small focused helpers",
+      "sortOrder": 50
+    },
+    {
+      "id": "reasoning",
+      "label": "Reasoning",
+      "description": "Structured thinking and planning tools",
+      "sortOrder": 60
+    }
+  ],
+  "items": [
+    {
+      "id": "mealie",
+      "name": "Mealie",
+      "blurb": "Recipe manager, shopping lists, meal plans — talk to your Mealie instance.",
+      "tags": [
+        "uvx",
+        "git",
+        "recipes"
+      ],
+      "source": "github.com/rldiao/mealie-mcp-server",
+      "category": "apps",
+      "featured": true,
+      "sortOrder": 10,
+      "preset": {
+        "id": "mealie",
+        "name": "Mealie",
+        "launcher": "custom",
+        "command": "uvx",
+        "argsLines": "--python\n3.12\n--from\ngit+https://github.com/rldiao/mealie-mcp-server\n--with\nmcp[cli]>=1.12.0,<2\nmealie-mcp-server",
+        "env": [
+          {
+            "key": "MEALIE_BASE_URL",
+            "value": "https://your-mealie-instance.com",
+            "required": true,
+            "description": "Base URL of your instance (cloud or self-hosted)."
+          },
+          {
+            "key": "MEALIE_API_KEY",
+            "value": "",
+            "required": true,
+            "secret": true,
+            "description": "Secret — keep private; leave blank only if the server allows unauthenticated access."
+          }
+        ],
+        "git": "",
+        "ref": "",
+        "startNow": true
+      }
+    },
+    {
+      "id": "portainer",
+      "name": "Portainer",
+      "blurb": "Manage Docker and Kubernetes environments, stacks, and resources via Portainer.",
+      "tags": [
+        "uvx",
+        "docker",
+        "kubernetes",
+        "self-hosted"
+      ],
+      "source": "mcp-portainer",
+      "category": "apps",
+      "featured": true,
+      "sortOrder": 12,
+      "preset": {
+        "id": "portainer",
+        "name": "Portainer",
+        "launcher": "uvx",
+        "package": "mcp-portainer",
+        "env": [
+          {
+            "key": "PORTAINER_URL",
+            "value": "https://your-portainer.example.com",
+            "required": true,
+            "description": "Base URL of your instance (cloud or self-hosted)."
+          },
+          {
+            "key": "PORTAINER_API_KEY",
+            "value": "",
+            "required": true,
+            "secret": true,
+            "description": "Secret — keep private; leave blank only if the server allows unauthenticated access."
+          },
+          {
+            "key": "PORTAINER_TLS_VERIFY",
+            "value": "1",
+            "required": false,
+            "description": "Optional tuning; defaults usually work."
+          }
+        ],
+        "git": "",
+        "ref": "",
+        "startNow": true
+      }
+    },
+    {
+      "id": "home-assistant",
+      "name": "Home Assistant",
+      "blurb": "Control devices, automations, and smart-home state on your Home Assistant instance.",
+      "tags": [
+        "uvx",
+        "home",
+        "self-hosted"
+      ],
+      "source": "ha-mcp",
+      "category": "apps",
+      "featured": false,
+      "sortOrder": 14,
+      "preset": {
+        "id": "home-assistant",
+        "name": "Home Assistant",
+        "launcher": "uvx",
+        "package": "ha-mcp",
+        "env": [
+          {
+            "key": "HOMEASSISTANT_URL",
+            "value": "http://homeassistant.local:8123",
+            "required": false,
+            "description": "Base URL of your instance (cloud or self-hosted)."
+          },
+          {
+            "key": "HOMEASSISTANT_TOKEN",
+            "value": "",
+            "required": true,
+            "secret": true,
+            "description": "Secret — keep private; leave blank only if the server allows unauthenticated access."
+          }
+        ],
+        "git": "",
+        "ref": "",
+        "startNow": true
+      }
+    },
+    {
+      "id": "nextcloud",
+      "name": "Nextcloud",
+      "blurb": "Files, notes, calendar, contacts, and more on your Nextcloud server.",
+      "tags": [
+        "uvx",
+        "files",
+        "self-hosted"
+      ],
+      "source": "nextcloud-mcp-server",
+      "category": "apps",
+      "featured": false,
+      "sortOrder": 16,
+      "preset": {
+        "id": "nextcloud",
+        "name": "Nextcloud",
+        "launcher": "uvx",
+        "package": "nextcloud-mcp-server",
+        "extraArgs": "run --transport stdio",
+        "env": [
+          {
+            "key": "NEXTCLOUD_HOST",
+            "value": "https://your-nextcloud.example.com",
+            "required": true,
+            "description": "Base URL of your instance (cloud or self-hosted)."
+          },
+          {
+            "key": "NEXTCLOUD_USERNAME",
+            "value": "",
+            "required": true,
+            "description": "Required for this server to start."
+          },
+          {
+            "key": "NEXTCLOUD_PASSWORD",
+            "value": "",
+            "required": true,
+            "secret": true,
+            "description": "Secret — keep private; leave blank only if the server allows unauthenticated access."
+          }
+        ],
+        "git": "",
+        "ref": "",
+        "startNow": true
+      }
+    },
+    {
+      "id": "paperless",
+      "name": "Paperless-ngx",
+      "blurb": "Search and manage documents in your Paperless-ngx archive.",
+      "tags": [
+        "uvx",
+        "documents",
+        "self-hosted"
+      ],
+      "source": "paperless-mcp",
+      "category": "apps",
+      "featured": false,
+      "sortOrder": 18,
+      "preset": {
+        "id": "paperless",
+        "name": "Paperless-ngx",
+        "launcher": "uvx",
+        "package": "paperless-mcp",
+        "env": [
+          {
+            "key": "PAPERLESS_URL",
+            "value": "https://your-paperless.example.com",
+            "required": true,
+            "description": "Base URL of your instance (cloud or self-hosted)."
+          },
+          {
+            "key": "PAPERLESS_TOKEN",
+            "value": "",
+            "required": true,
+            "secret": true,
+            "description": "Secret — keep private; leave blank only if the server allows unauthenticated access."
+          },
+          {
+            "key": "PAPERLESS_MCP_READONLY",
+            "value": "true",
+            "required": false
+          }
+        ],
+        "git": "",
+        "ref": "",
+        "startNow": true
+      }
+    },
+    {
+      "id": "jellyfin",
+      "name": "Jellyfin",
+      "blurb": "Browse and control your self-hosted Jellyfin media library.",
+      "tags": [
+        "uvx",
+        "media",
+        "self-hosted"
+      ],
+      "source": "jellyfin-mcp",
+      "category": "apps",
+      "featured": false,
+      "sortOrder": 19,
+      "preset": {
+        "id": "jellyfin",
+        "name": "Jellyfin",
+        "launcher": "uvx",
+        "package": "jellyfin-mcp",
+        "env": [
+          {
+            "key": "JELLYFIN_URL",
+            "value": "http://localhost:8096",
+            "required": false,
+            "description": "Base URL of your instance (cloud or self-hosted)."
+          },
+          {
+            "key": "JELLYFIN_API_KEY",
+            "value": "",
+            "required": true,
+            "secret": true,
+            "description": "Secret — keep private; leave blank only if the server allows unauthenticated access."
+          }
+        ],
+        "git": "",
+        "ref": "",
+        "startNow": true
+      }
+    },
+    {
+      "id": "everything",
+      "name": "Everything (demo)",
+      "blurb": "Reference MCP server with sample tools for gateway smoke tests.",
+      "tags": [
+        "npx",
+        "demo"
+      ],
+      "source": "@modelcontextprotocol/server-everything",
+      "category": "developer",
+      "featured": true,
+      "sortOrder": 20,
+      "preset": {
+        "id": "everything",
+        "name": "Everything",
+        "launcher": "npx",
+        "package": "@modelcontextprotocol/server-everything",
+        "env": [
+          {
+            "key": "",
+            "value": ""
+          }
+        ],
+        "git": "",
+        "ref": "",
+        "startNow": true
+      }
+    },
+    {
+      "id": "memory",
+      "name": "Memory",
+      "blurb": "Persistent knowledge graph memory for agents.",
+      "tags": [
+        "npx",
+        "memory"
+      ],
+      "source": "@modelcontextprotocol/server-memory",
+      "category": "essentials",
+      "featured": false,
+      "sortOrder": 40,
+      "preset": {
+        "id": "memory",
+        "name": "Memory",
+        "launcher": "npx",
+        "package": "@modelcontextprotocol/server-memory",
+        "env": [
+          {
+            "key": "",
+            "value": ""
+          }
+        ],
+        "git": "",
+        "ref": "",
+        "startNow": true
+      }
+    },
+    {
+      "id": "fetch",
+      "name": "Fetch",
+      "blurb": "Fetch and convert web pages to markdown for LLMs.",
+      "tags": [
+        "uvx",
+        "web"
+      ],
+      "source": "mcp-server-fetch",
+      "category": "web",
+      "featured": false,
+      "sortOrder": 50,
+      "preset": {
+        "id": "fetch",
+        "name": "Fetch",
+        "launcher": "uvx",
+        "package": "mcp-server-fetch",
+        "env": [
+          {
+            "key": "",
+            "value": ""
+          }
+        ],
+        "git": "",
+        "ref": "",
+        "startNow": true
+      }
+    },
+    {
+      "id": "firecrawl",
+      "name": "Firecrawl",
+      "blurb": "Official Firecrawl MCP — scrape, crawl, and search. Works with cloud or a self-hosted Firecrawl API URL.",
+      "tags": [
+        "npx",
+        "web",
+        "scrape",
+        "search",
+        "self-hosted",
+        "official"
+      ],
+      "source": "firecrawl-mcp",
+      "category": "web",
+      "featured": false,
+      "sortOrder": 60,
+      "preset": {
+        "id": "firecrawl",
+        "name": "Firecrawl",
+        "launcher": "npx",
+        "package": "firecrawl-mcp",
+        "env": [
+          {
+            "key": "FIRECRAWL_API_URL",
+            "value": "",
+            "required": false,
+            "description": "Optional. Leave empty for Firecrawl cloud; set for a self-hosted Firecrawl API."
+          },
+          {
+            "key": "FIRECRAWL_API_KEY",
+            "value": "",
+            "required": true,
+            "secret": true,
+            "description": "API key for Firecrawl cloud, or for a self-hosted instance that requires auth."
+          }
+        ],
+        "git": "",
+        "ref": "",
+        "startNow": true
+      }
+    },
+    {
+      "id": "brave-search",
+      "name": "Brave Search",
+      "blurb": "Web and local search via the Brave Search API.",
+      "tags": [
+        "npx",
+        "web",
+        "search"
+      ],
+      "source": "@modelcontextprotocol/server-brave-search",
+      "category": "web",
+      "featured": true,
+      "sortOrder": 70,
+      "preset": {
+        "id": "brave-search",
+        "name": "Brave Search",
+        "launcher": "npx",
+        "package": "@modelcontextprotocol/server-brave-search",
+        "env": [
+          {
+            "key": "BRAVE_API_KEY",
+            "value": "",
+            "required": true,
+            "secret": true,
+            "description": "Secret — keep private; leave blank only if the server allows unauthenticated access."
+          }
+        ],
+        "git": "",
+        "ref": "",
+        "startNow": true
+      }
+    },
+    {
+      "id": "playwright",
+      "name": "Playwright",
+      "blurb": "Browser automation — navigate, click, fill forms, and take snapshots.",
+      "tags": [
+        "npx",
+        "web",
+        "browser"
+      ],
+      "source": "@playwright/mcp",
+      "category": "web",
+      "featured": false,
+      "sortOrder": 80,
+      "preset": {
+        "id": "playwright",
+        "name": "Playwright",
+        "launcher": "npx",
+        "package": "@playwright/mcp",
+        "env": [
+          {
+            "key": "",
+            "value": ""
+          }
+        ],
+        "git": "",
+        "ref": "",
+        "startNow": true
+      }
+    },
+    {
+      "id": "context7",
+      "name": "Context7",
+      "blurb": "Pull up-to-date, version-specific library docs into the prompt.",
+      "tags": [
+        "npx",
+        "docs",
+        "developer"
+      ],
+      "source": "@upstash/context7-mcp",
+      "category": "developer",
+      "featured": true,
+      "sortOrder": 90,
+      "preset": {
+        "id": "context7",
+        "name": "Context7",
+        "launcher": "npx",
+        "package": "@upstash/context7-mcp",
+        "env": [
+          {
+            "key": "",
+            "value": ""
+          }
+        ],
+        "git": "",
+        "ref": "",
+        "startNow": true
+      }
+    },
+    {
+      "id": "time",
+      "name": "Time",
+      "blurb": "Time and timezone conversion helpers.",
+      "tags": [
+        "uvx",
+        "utility"
+      ],
+      "source": "mcp-server-time",
+      "category": "utilities",
+      "featured": true,
+      "sortOrder": 100,
+      "preset": {
+        "id": "time",
+        "name": "Time",
+        "launcher": "uvx",
+        "package": "mcp-server-time",
+        "env": [
+          {
+            "key": "",
+            "value": ""
+          }
+        ],
+        "git": "",
+        "ref": "",
+        "startNow": true
+      }
+    },
+    {
+      "id": "postgres",
+      "name": "PostgreSQL",
+      "blurb": "Read-only SQL queries and schema inspection for a Postgres database.",
+      "tags": [
+        "npx",
+        "database",
+        "sql"
+      ],
+      "source": "@modelcontextprotocol/server-postgres",
+      "category": "utilities",
+      "featured": false,
+      "sortOrder": 110,
+      "preset": {
+        "id": "postgres",
+        "name": "PostgreSQL",
+        "launcher": "npx",
+        "package": "@modelcontextprotocol/server-postgres",
+        "extraArgs": "postgresql://localhost/mydb",
+        "env": [
+          {
+            "key": "",
+            "value": ""
+          }
+        ],
+        "git": "",
+        "ref": "",
+        "startNow": true
+      }
+    },
+    {
+      "id": "sequential",
+      "name": "Sequential Thinking",
+      "blurb": "Structured multi-step reasoning tool for complex tasks.",
+      "tags": [
+        "npx",
+        "reasoning"
+      ],
+      "source": "@modelcontextprotocol/server-sequential-thinking",
+      "category": "reasoning",
+      "featured": false,
+      "sortOrder": 130,
+      "preset": {
+        "id": "sequential",
+        "name": "Sequential Thinking",
+        "launcher": "npx",
+        "package": "@modelcontextprotocol/server-sequential-thinking",
+        "env": [
+          {
+            "key": "",
+            "value": ""
+          }
+        ],
+        "git": "",
+        "ref": "",
+        "startNow": true
+      }
+    },
+    {
+      "id": "github",
+      "name": "GitHub",
+      "blurb": "Official GitHub MCP — repos, issues, pull requests, and more via Docker.",
+      "tags": [
+        "docker",
+        "github",
+        "official",
+        "developer"
+      ],
+      "source": "ghcr.io/github/github-mcp-server",
+      "category": "developer",
+      "featured": true,
+      "sortOrder": 25,
+      "preset": {
+        "id": "github",
+        "name": "GitHub",
+        "launcher": "custom",
+        "command": "docker",
+        "argsLines": "run\n-i\n--rm\n-e\nGITHUB_PERSONAL_ACCESS_TOKEN\nghcr.io/github/github-mcp-server",
+        "env": [
+          {
+            "key": "GITHUB_PERSONAL_ACCESS_TOKEN",
+            "value": "",
+            "required": true,
+            "secret": true,
+            "description": "Secret — keep private; leave blank only if the server allows unauthenticated access."
+          }
+        ],
+        "git": "",
+        "ref": "",
+        "startNow": true
+      }
+    },
+    {
+      "id": "grafana",
+      "name": "Grafana",
+      "blurb": "Official Grafana MCP — search dashboards, query datasources, and investigate incidents.",
+      "tags": [
+        "uvx",
+        "observability",
+        "official",
+        "self-hosted"
+      ],
+      "source": "mcp-grafana",
+      "category": "apps",
+      "featured": false,
+      "sortOrder": 15,
+      "preset": {
+        "id": "grafana",
+        "name": "Grafana",
+        "launcher": "uvx",
+        "package": "mcp-grafana",
+        "env": [
+          {
+            "key": "GRAFANA_URL",
+            "value": "http://localhost:3000",
+            "required": false,
+            "description": "Base URL of your instance (cloud or self-hosted)."
+          },
+          {
+            "key": "GRAFANA_SERVICE_ACCOUNT_TOKEN",
+            "value": "",
+            "required": true,
+            "secret": true,
+            "description": "Secret — keep private; leave blank only if the server allows unauthenticated access."
+          }
+        ],
+        "git": "",
+        "ref": "",
+        "startNow": true
+      }
+    },
+    {
+      "id": "markitdown",
+      "name": "MarkItDown",
+      "blurb": "Microsoft MarkItDown — convert PDFs, Office docs, images, and more to markdown for LLMs.",
+      "tags": [
+        "uvx",
+        "docs",
+        "official",
+        "utilities"
+      ],
+      "source": "markitdown-mcp",
+      "category": "utilities",
+      "featured": false,
+      "sortOrder": 105,
+      "preset": {
+        "id": "markitdown",
+        "name": "MarkItDown",
+        "launcher": "uvx",
+        "package": "markitdown-mcp",
+        "env": [
+          {
+            "key": "",
+            "value": ""
+          }
+        ],
+        "git": "",
+        "ref": "",
+        "startNow": true
+      }
+    },
+    {
+      "id": "supabase",
+      "name": "Supabase",
+      "blurb": "Official Supabase MCP — manage projects, run SQL, migrations, and Edge Functions.",
+      "tags": [
+        "npx",
+        "database",
+        "official",
+        "apps"
+      ],
+      "source": "@supabase/mcp-server-supabase",
+      "category": "apps",
+      "featured": false,
+      "sortOrder": 17,
+      "preset": {
+        "id": "supabase",
+        "name": "Supabase",
+        "launcher": "npx",
+        "package": "@supabase/mcp-server-supabase",
+        "extraArgs": "--read-only",
+        "env": [
+          {
+            "key": "SUPABASE_ACCESS_TOKEN",
+            "value": "",
+            "required": true,
+            "secret": true,
+            "description": "Secret — keep private; leave blank only if the server allows unauthenticated access."
+          }
+        ],
+        "git": "",
+        "ref": "",
+        "startNow": true
+      }
+    },
+    {
+      "id": "google-workspace",
+      "name": "Google Workspace",
+      "blurb": "Gmail, Drive, Docs, Sheets, Calendar, and more via Google Workspace APIs (OAuth).",
+      "tags": [
+        "uvx",
+        "google",
+        "gmail",
+        "drive",
+        "apps"
+      ],
+      "source": "workspace-mcp",
+      "category": "apps",
+      "featured": true,
+      "sortOrder": 13,
+      "preset": {
+        "id": "google-workspace",
+        "name": "Google Workspace",
+        "launcher": "uvx",
+        "package": "workspace-mcp",
+        "extraArgs": "--tool-tier core",
+        "env": [
+          {
+            "key": "GOOGLE_OAUTH_CLIENT_ID",
+            "value": "",
+            "required": true,
+            "description": "Identifier from your product console / project settings."
+          },
+          {
+            "key": "GOOGLE_OAUTH_CLIENT_SECRET",
+            "value": "",
+            "required": true,
+            "secret": true,
+            "description": "Secret — keep private; leave blank only if the server allows unauthenticated access."
+          },
+          {
+            "key": "OAUTHLIB_INSECURE_TRANSPORT",
+            "value": "1",
+            "required": false,
+            "description": "Optional tuning; defaults usually work."
+          }
+        ],
+        "git": "",
+        "ref": "",
+        "startNow": true
+      }
+    },
+    {
+      "id": "appwrite",
+      "name": "Appwrite",
+      "blurb": "Official Appwrite MCP — databases, users, storage, and functions on your self-hosted instance.",
+      "tags": [
+        "uvx",
+        "official",
+        "self-hosted",
+        "apps"
+      ],
+      "source": "mcp-server-appwrite",
+      "category": "apps",
+      "featured": false,
+      "sortOrder": 16,
+      "preset": {
+        "id": "appwrite",
+        "name": "Appwrite",
+        "launcher": "uvx",
+        "package": "mcp-server-appwrite",
+        "env": [
+          {
+            "key": "APPWRITE_ENDPOINT",
+            "value": "https://your-appwrite.example.com/v1",
+            "required": true,
+            "description": "Base URL of your instance (cloud or self-hosted)."
+          },
+          {
+            "key": "APPWRITE_PROJECT_ID",
+            "value": "",
+            "required": true,
+            "description": "Identifier from your product console / project settings."
+          },
+          {
+            "key": "APPWRITE_API_KEY",
+            "value": "",
+            "required": true,
+            "secret": true,
+            "description": "Secret — keep private; leave blank only if the server allows unauthenticated access."
+          }
+        ],
+        "git": "",
+        "ref": "",
+        "startNow": true
+      }
+    },
+    {
+      "id": "discourse",
+      "name": "Discourse",
+      "blurb": "Official Discourse MCP — search topics, read posts, and manage forum categories.",
+      "tags": [
+        "npx",
+        "official",
+        "self-hosted",
+        "apps"
+      ],
+      "source": "@discourse/mcp",
+      "category": "apps",
+      "featured": false,
+      "sortOrder": 18,
+      "preset": {
+        "id": "discourse",
+        "name": "Discourse",
+        "launcher": "npx",
+        "package": "@discourse/mcp",
+        "extraArgs": "--site https://your-discourse.example.com",
+        "env": [
+          {
+            "key": "",
+            "value": ""
+          }
+        ],
+        "git": "",
+        "ref": "",
+        "startNow": true
+      }
+    },
+    {
+      "id": "influxdb",
+      "name": "InfluxDB 3",
+      "blurb": "Official InfluxData MCP — query and manage InfluxDB 3 Core/Enterprise instances.",
+      "tags": [
+        "npx",
+        "official",
+        "observability",
+        "self-hosted"
+      ],
+      "source": "@influxdata/influxdb3-mcp-server",
+      "category": "apps",
+      "featured": false,
+      "sortOrder": 19,
+      "preset": {
+        "id": "influxdb",
+        "name": "InfluxDB 3",
+        "launcher": "npx",
+        "package": "@influxdata/influxdb3-mcp-server",
+        "env": [
+          {
+            "key": "INFLUX_DB_INSTANCE_URL",
+            "value": "http://localhost:8181/",
+            "required": false,
+            "description": "Base URL of your instance (cloud or self-hosted)."
+          },
+          {
+            "key": "INFLUX_DB_TOKEN",
+            "value": "",
+            "required": true,
+            "secret": true,
+            "description": "Secret — keep private; leave blank only if the server allows unauthenticated access."
+          },
+          {
+            "key": "INFLUX_DB_PRODUCT_TYPE",
+            "value": "core",
+            "required": false,
+            "description": "Optional tuning; defaults usually work."
+          },
+          {
+            "key": "INFLUX_MCP_TOOL_PROFILE",
+            "value": "readonly",
+            "required": false,
+            "description": "Optional tuning; defaults usually work."
+          }
+        ],
+        "git": "",
+        "ref": "",
+        "startNow": true
+      }
+    },
+    {
+      "id": "victoriametrics",
+      "name": "VictoriaMetrics",
+      "blurb": "VictoriaMetrics community MCP — query metrics and explore your VictoriaMetrics instance.",
+      "tags": [
+        "docker",
+        "observability",
+        "self-hosted",
+        "apps"
+      ],
+      "source": "ghcr.io/victoriametrics/mcp-victoriametrics",
+      "category": "apps",
+      "featured": false,
+      "sortOrder": 20,
+      "preset": {
+        "id": "victoriametrics",
+        "name": "VictoriaMetrics",
+        "launcher": "custom",
+        "command": "docker",
+        "argsLines": "run\n-i\n--rm\n-e\nVM_INSTANCE_ENTRYPOINT\n-e\nVM_INSTANCE_TYPE\n-e\nVM_INSTANCE_BEARER_TOKEN\nghcr.io/victoriametrics/mcp-victoriametrics",
+        "env": [
+          {
+            "key": "VM_INSTANCE_ENTRYPOINT",
+            "value": "http://localhost:8428",
+            "required": false
+          },
+          {
+            "key": "VM_INSTANCE_TYPE",
+            "value": "single",
+            "required": false,
+            "description": "Optional tuning; defaults usually work."
+          },
+          {
+            "key": "VM_INSTANCE_BEARER_TOKEN",
+            "value": "",
+            "required": true,
+            "secret": true,
+            "description": "Secret — keep private; leave blank only if the server allows unauthenticated access."
+          }
+        ],
+        "git": "",
+        "ref": "",
+        "startNow": true
+      }
+    },
+    {
+      "id": "bitwarden",
+      "name": "Bitwarden",
+      "blurb": "Official Bitwarden MCP — vault and org admin. Highly sensitive; never expose publicly. Requires bw CLI for vault tools.",
+      "tags": [
+        "npx",
+        "official",
+        "secrets",
+        "self-hosted"
+      ],
+      "source": "@bitwarden/mcp-server",
+      "category": "apps",
+      "featured": false,
+      "sortOrder": 21,
+      "preset": {
+        "id": "bitwarden",
+        "name": "Bitwarden",
+        "launcher": "npx",
+        "package": "@bitwarden/mcp-server",
+        "env": [
+          {
+            "key": "BW_SESSION",
+            "value": "",
+            "required": true,
+            "secret": true,
+            "description": "Secret — keep private; leave blank only if the server allows unauthenticated access."
+          },
+          {
+            "key": "BW_API_BASE_URL",
+            "value": "https://api.bitwarden.com",
+            "required": false,
+            "description": "Base URL of your instance (cloud or self-hosted)."
+          },
+          {
+            "key": "BW_IDENTITY_URL",
+            "value": "https://identity.bitwarden.com",
+            "required": false,
+            "description": "Base URL of your instance (cloud or self-hosted)."
+          }
+        ],
+        "git": "",
+        "ref": "",
+        "startNow": true
+      }
+    },
+    {
+      "id": "netdata",
+      "name": "Netdata",
+      "blurb": "Official Netdata observability via mcp-remote stdio bridge to your agent /mcp endpoint.",
+      "tags": [
+        "npx",
+        "official",
+        "observability",
+        "self-hosted"
+      ],
+      "source": "mcp-remote (Netdata /mcp)",
+      "category": "apps",
+      "featured": false,
+      "sortOrder": 22,
+      "preset": {
+        "id": "netdata",
+        "name": "Netdata",
+        "launcher": "custom",
+        "command": "npx",
+        "argsLines": "-y\nmcp-remote@latest\n--http\nhttp://YOUR_NETDATA:19999/mcp\n--header\nAuthorization: Bearer YOUR_API_KEY",
+        "env": [
+          {
+            "key": "",
+            "value": ""
+          }
+        ],
+        "git": "",
+        "ref": "",
+        "startNow": true
+      }
+    },
+    {
+      "id": "n8n",
+      "name": "n8n",
+      "blurb": "Community n8n MCP — node docs plus workflow management against your n8n API.",
+      "tags": [
+        "npx",
+        "community",
+        "automation",
+        "self-hosted"
+      ],
+      "source": "n8n-mcp",
+      "category": "apps",
+      "featured": false,
+      "sortOrder": 23,
+      "preset": {
+        "id": "n8n",
+        "name": "n8n",
+        "launcher": "npx",
+        "package": "n8n-mcp",
+        "env": [
+          {
+            "key": "MCP_MODE",
+            "value": "stdio",
+            "required": false,
+            "description": "Optional tuning; defaults usually work."
+          },
+          {
+            "key": "LOG_LEVEL",
+            "value": "error",
+            "required": false,
+            "description": "Optional tuning; defaults usually work."
+          },
+          {
+            "key": "DISABLE_CONSOLE_OUTPUT",
+            "value": "true",
+            "required": false,
+            "description": "Optional tuning; defaults usually work."
+          },
+          {
+            "key": "N8N_API_URL",
+            "value": "https://your-n8n.example.com",
+            "required": true,
+            "description": "Base URL of your instance (cloud or self-hosted)."
+          },
+          {
+            "key": "N8N_API_KEY",
+            "value": "",
+            "required": true,
+            "secret": true,
+            "description": "Secret — keep private; leave blank only if the server allows unauthenticated access."
+          }
+        ],
+        "git": "",
+        "ref": "",
+        "startNow": true
+      }
+    },
+    {
+      "id": "immich",
+      "name": "Immich",
+      "blurb": "Community Immich MCP — search and manage photos on your self-hosted Immich library.",
+      "tags": [
+        "npx",
+        "community",
+        "photos",
+        "self-hosted"
+      ],
+      "source": "immich-mcp",
+      "category": "apps",
+      "featured": false,
+      "sortOrder": 24,
+      "preset": {
+        "id": "immich",
+        "name": "Immich",
+        "launcher": "npx",
+        "package": "immich-mcp",
+        "env": [
+          {
+            "key": "IMMICH_BASE_URL",
+            "value": "https://your-immich.example.com/api",
+            "required": true,
+            "description": "Base URL of your instance (cloud or self-hosted)."
+          },
+          {
+            "key": "IMMICH_API_KEY",
+            "value": "",
+            "required": true,
+            "secret": true,
+            "description": "Secret — keep private; leave blank only if the server allows unauthenticated access."
+          },
+          {
+            "key": "IMMICH_ALLOW_WRITES",
+            "value": "false",
+            "required": false,
+            "description": "Optional tuning; defaults usually work."
+          }
+        ],
+        "git": "",
+        "ref": "",
+        "startNow": true
+      }
+    },
+    {
+      "id": "gitlab",
+      "name": "GitLab",
+      "blurb": "Community GitLab MCP — issues, MRs, and projects via API token (self-managed or gitlab.com).",
+      "tags": [
+        "npx",
+        "community",
+        "git",
+        "developer"
+      ],
+      "source": "@structured-world/gitlab-mcp",
+      "category": "developer",
+      "featured": false,
+      "sortOrder": 26,
+      "preset": {
+        "id": "gitlab",
+        "name": "GitLab",
+        "launcher": "npx",
+        "package": "@structured-world/gitlab-mcp",
+        "env": [
+          {
+            "key": "GITLAB_API_URL",
+            "value": "https://gitlab.com",
+            "required": false,
+            "description": "Base URL of your instance (cloud or self-hosted)."
+          },
+          {
+            "key": "GITLAB_TOKEN",
+            "value": "",
+            "required": true,
+            "secret": true,
+            "description": "Secret — keep private; leave blank only if the server allows unauthenticated access."
+          }
+        ],
+        "git": "",
+        "ref": "",
+        "startNow": true
+      }
+    },
+    {
+      "id": "gitea",
+      "name": "Gitea",
+      "blurb": "Official Gitea MCP — repos, issues, PRs, and Actions on your Gitea instance.",
+      "tags": [
+        "docker",
+        "official",
+        "git",
+        "developer"
+      ],
+      "source": "docker.gitea.com/gitea-mcp-server",
+      "category": "developer",
+      "featured": false,
+      "sortOrder": 27,
+      "preset": {
+        "id": "gitea",
+        "name": "Gitea",
+        "launcher": "custom",
+        "command": "docker",
+        "argsLines": "run\n-i\n--rm\n-e\nGITEA_HOST\n-e\nGITEA_ACCESS_TOKEN\ndocker.gitea.com/gitea-mcp-server",
+        "env": [
+          {
+            "key": "GITEA_HOST",
+            "value": "https://your-gitea.example.com",
+            "required": true,
+            "description": "Base URL of your instance (cloud or self-hosted)."
+          },
+          {
+            "key": "GITEA_ACCESS_TOKEN",
+            "value": "",
+            "required": true,
+            "secret": true,
+            "description": "Secret — keep private; leave blank only if the server allows unauthenticated access."
+          }
+        ],
+        "git": "",
+        "ref": "",
+        "startNow": true
+      }
+    }
+  ]
+}

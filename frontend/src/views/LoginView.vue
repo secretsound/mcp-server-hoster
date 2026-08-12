@@ -7,8 +7,6 @@ import {
   NButton,
   NCard,
   NDivider,
-  NForm,
-  NFormItem,
   NInput,
   NSpace,
   NText,
@@ -105,34 +103,26 @@ async function submit() {
         <NDivider style="margin: 0.4rem 0">{{ t("login.orEmail") }}</NDivider>
       </NSpace>
 
-      <NForm
-        :model="form"
-        :show-require-mark="false"
-        @submit.prevent="submit"
-      >
-        <NFormItem
-          :label="t('login.email')"
-          path="email"
-          :show-feedback="false"
-          :required="true"
-        >
+      <form class="login-form" @submit.prevent="submit">
+        <!--
+          Plain labels (not NFormItem): some password managers hide the
+          username NFormItem wrapper entirely, leaving only Password visible.
+        -->
+        <label class="login-field" for="login-email">
+          <span class="login-field-label">{{ t("login.email") }}</span>
           <NInput
             id="login-email"
             v-model:value="form.email"
-            type="email"
-            name="email"
+            type="text"
+            name="username"
             autocomplete="username"
             inputmode="email"
             autofocus
             :placeholder="t('login.emailPlaceholder')"
           />
-        </NFormItem>
-        <NFormItem
-          :label="t('login.password')"
-          path="password"
-          :show-feedback="false"
-          :required="true"
-        >
+        </label>
+        <label class="login-field" for="login-password">
+          <span class="login-field-label">{{ t("login.password") }}</span>
           <NInput
             id="login-password"
             v-model:value="form.password"
@@ -142,7 +132,7 @@ async function submit() {
             autocomplete="current-password"
             placeholder="••••••••"
           />
-        </NFormItem>
+        </label>
         <NSpace justify="end">
           <NButton
             type="primary"
@@ -153,7 +143,7 @@ async function submit() {
             {{ t("login.signIn") }}
           </NButton>
         </NSpace>
-      </NForm>
+      </form>
     </NCard>
   </div>
 </template>
@@ -207,16 +197,38 @@ async function submit() {
   color: #0f161c;
 }
 
-/* Keep login inputs visible even if a password manager tries to hide username. */
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+.login-field {
+  display: flex !important;
+  flex-direction: column;
+  gap: 0.35rem;
+  visibility: visible !important;
+  opacity: 1 !important;
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+  position: relative !important;
+  clip: auto !important;
+  transform: none !important;
+}
+.login-field-label {
+  font-size: 0.9rem;
+  color: var(--app-text-soft);
+}
 :deep(#login-email),
-:deep(#login-password) {
-  display: block !important;
+:deep(#login-password),
+:deep(#login-email .n-input),
+:deep(#login-password .n-input),
+:deep(#login-email .n-input-wrapper),
+:deep(#login-password .n-input-wrapper) {
+  display: flex !important;
   visibility: visible !important;
   opacity: 1 !important;
   min-height: 34px;
-}
-:deep(.n-form-item) {
-  display: grid !important;
-  visibility: visible !important;
+  width: 100%;
 }
 </style>

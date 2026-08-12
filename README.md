@@ -57,4 +57,4 @@ Most options live in **Settings** after first boot. Bootstrap via env (see [`.en
 
 ## License
 
-[MIT](LICENSE)
+[PolyForm Noncommercial 1.0.0](LICENSE) — free for personal, educational, research, and other noncommercial use. Commercial use (including selling the software or using it to operate a business) requires a separate license from the copyright holder.

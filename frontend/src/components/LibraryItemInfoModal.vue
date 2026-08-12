@@ -19,12 +19,12 @@ import {
   copyText,
   displayLibraryTags,
   isOfficialLibraryItem,
-  isOnlineLibraryItem,
   librarySourceKind,
   librarySourceUrl,
   optionalEnvKeysFromPairs,
   requiredEnvKeysFromPairs,
 } from "../utils/serverForm";
+import LibraryNetworkBadge from "./LibraryNetworkBadge.vue";
 
 const props = defineProps<{
   item: LibraryItem | null;
@@ -198,16 +198,7 @@ async function copyCommand() {
           <h2 class="info-title">{{ item.name }}</h2>
           <div class="info-chips">
             <span v-if="categoryLabel" class="chip chip-cat">{{ categoryLabel }}</span>
-            <span
-              class="chip"
-              :class="isOnlineLibraryItem(item.tags) ? 'chip-warn' : 'chip-ok'"
-            >
-              {{
-                isOnlineLibraryItem(item.tags)
-                  ? t("library.onlineRequired")
-                  : t("library.localApp")
-              }}
-            </span>
+            <LibraryNetworkBadge :tags="item.tags" labeled />
             <span
               v-if="isOfficialLibraryItem(item.tags)"
               class="chip chip-ok"

@@ -250,7 +250,8 @@
       "tags": [
         "uvx",
         "official",
-        "apps"
+        "apps",
+        "hybrid"
       ],
       "source": "mcp-server-appwrite",
       "category": "apps",
@@ -339,7 +340,8 @@
         "npx",
         "database",
         "official",
-        "apps"
+        "apps",
+        "hybrid"
       ],
       "source": "@supabase/mcp-server-supabase",
       "category": "apps",
@@ -603,7 +605,8 @@
       "tags": [
         "npx",
         "official",
-        "secrets"
+        "secrets",
+        "hybrid"
       ],
       "source": "@bitwarden/mcp-server",
       "category": "apps",
@@ -813,7 +816,8 @@
         "npx",
         "community",
         "git",
-        "developer"
+        "developer",
+        "hybrid"
       ],
       "source": "@structured-world/gitlab-mcp",
       "category": "developer",
@@ -951,7 +955,7 @@
         "scrape",
         "search",
         "official",
-        "online"
+        "hybrid"
       ],
       "source": "firecrawl-mcp",
       "category": "web",
@@ -1264,46 +1268,6 @@
         "git": "",
         "ref": "",
         "startNow": true
-      }
-    },
-    {
-      "id": "truenas",
-      "name": "TrueNAS",
-      "blurb": "Official TrueNAS Research Labs MCP (research preview) — pools, datasets, apps, VMs over secure WebSocket.",
-      "tags": [
-        "official",
-        "storage",
-        "nas",
-        "research-preview"
-      ],
-      "source": "github.com/truenas/truenas-mcp",
-      "category": "apps",
-      "featured": true,
-      "sortOrder": 11,
-      "preset": {
-        "id": "truenas",
-        "name": "TrueNAS",
-        "launcher": "custom",
-        "command": "truenas-mcp",
-        "argsLines": "--insecure",
-        "env": [
-          {
-            "key": "TRUENAS_URL",
-            "value": "truenas.local",
-            "required": true,
-            "description": "TrueNAS hostname or IP (uses wss://). Install the binary on PATH from github.com/truenas/truenas-mcp/releases."
-          },
-          {
-            "key": "TRUENAS_API_KEY",
-            "value": "",
-            "required": true,
-            "secret": true,
-            "description": "API key from TrueNAS System Settings → API Keys."
-          }
-        ],
-        "git": "",
-        "ref": "",
-        "startNow": false
       }
     },
     {
@@ -1795,7 +1759,8 @@
       "blurb": "Manage issues and projects in Plane (self-hosted or Plane Cloud).",
       "tags": [
         "npx",
-        "project-management"
+        "project-management",
+        "hybrid"
       ],
       "source": "plane-mcp",
       "category": "apps",
@@ -2056,7 +2021,8 @@
       "blurb": "Manage posts and content on your Ghost publishing site.",
       "tags": [
         "npx",
-        "cms"
+        "cms",
+        "hybrid"
       ],
       "source": "ghost-mcp",
       "category": "apps",
@@ -2263,6 +2229,44 @@
             "required": true,
             "secret": true,
             "description": "API token from Codeberg/Forgejo Settings → Applications."
+          }
+        ],
+        "git": "",
+        "ref": "",
+        "startNow": true
+      }
+    },
+    {
+      "id": "seerr",
+      "name": "Seerr / Overseerr",
+      "blurb": "Search, request, and manage media via Seerr (or Overseerr) — works with your Radarr/Sonarr stack.",
+      "tags": [
+        "npx",
+        "media",
+        "requests"
+      ],
+      "source": "@jhomen368/overseerr-mcp",
+      "category": "apps",
+      "featured": false,
+      "sortOrder": 19,
+      "preset": {
+        "id": "seerr",
+        "name": "Seerr / Overseerr",
+        "launcher": "npx",
+        "package": "@jhomen368/overseerr-mcp",
+        "env": [
+          {
+            "key": "SEERR_URL",
+            "value": "https://seerr.example.com",
+            "required": true,
+            "description": "Base URL of your Seerr or Overseerr instance."
+          },
+          {
+            "key": "SEERR_API_KEY",
+            "value": "",
+            "required": true,
+            "secret": true,
+            "description": "API key from Settings → General."
           }
         ],
         "git": "",

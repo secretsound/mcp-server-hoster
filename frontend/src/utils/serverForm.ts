@@ -204,12 +204,26 @@ export function isOfficialLibraryItem(tags: string[] | undefined): boolean {
   return (tags || []).some((t) => t.toLowerCase() === "official");
 }
 
+export type LibraryNetworkKind = "local" | "online" | "hybrid";
+
+/** How the backend is typically reached: local instance, cloud, or either. */
+export function libraryNetworkKind(
+  tags: string[] | undefined,
+): LibraryNetworkKind {
+  const lower = (tags || []).map((t) => t.toLowerCase());
+  const hybrid = lower.some((t) =>
+    ["hybrid", "either", "local-or-online"].includes(t),
+  );
+  const online = lower.some((t) => t === "online" || t === "cloud");
+  const local = lower.some((t) => t === "local");
+  if (hybrid || (online && local)) return "hybrid";
+  if (online) return "online";
+  return "local";
+}
+
 /** Third-party / cloud backend that needs outbound internet by default. */
 export function isOnlineLibraryItem(tags: string[] | undefined): boolean {
-  return (tags || []).some((t) => {
-    const lower = t.toLowerCase();
-    return lower === "online" || lower === "cloud";
-  });
+  return libraryNetworkKind(tags) === "online";
 }
 
 /** Tags for display excluding ones already shown as dedicated badges. */
@@ -221,7 +235,10 @@ export function displayLibraryTags(tags: string[] | undefined): string[] {
       lower !== "official" &&
       lower !== "online" &&
       lower !== "cloud" &&
-      lower !== "local"
+      lower !== "local" &&
+      lower !== "hybrid" &&
+      lower !== "either" &&
+      lower !== "local-or-online"
     );
   });
 }

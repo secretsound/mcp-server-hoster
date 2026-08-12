@@ -13,7 +13,6 @@ import {
   NInput,
   NModal,
   NSpace,
-  NSpin,
   NText,
   useMessage,
 } from "naive-ui";
@@ -26,7 +25,6 @@ import {
   buildCreatePayload,
   copyText,
   isOfficialLibraryItem,
-  isOnlineLibraryItem,
   libraryBaseId,
   libraryInstances,
   nextLibraryServerId,
@@ -36,6 +34,7 @@ import {
   statusOf,
 } from "../utils/serverForm";
 import EnvKeyValueEditor from "./EnvKeyValueEditor.vue";
+import LibraryNetworkBadge from "./LibraryNetworkBadge.vue";
 import StatusTag from "./StatusTag.vue";
 
 type Step = 1 | 2 | 3;
@@ -53,8 +52,6 @@ const formError = ref("");
 const createdId = ref<string | null>(null);
 const createdServer = ref<ServerWithRuntime | null>(null);
 const discoveredTools = ref<ToolInfo[]>([]);
-const statusPolling = ref(false);
-const statusTimedOut = ref(false);
 
 let pollTimer: ReturnType<typeof setTimeout> | null = null;
 let pollGeneration = 0;
@@ -178,7 +175,6 @@ function stopPolling() {
     clearTimeout(pollTimer);
     pollTimer = null;
   }
-  statusPolling.value = false;
 }
 
 async function refreshTools(id: string) {
@@ -191,9 +187,8 @@ async function refreshTools(id: string) {
 
 async function pollRuntime(id: string, startedAt: number) {
   const gen = pollGeneration;
-  const maxMs = 45_000;
-  statusPolling.value = true;
-  statusTimedOut.value = false;
+  // Soft refresh only — Done is already shown; downloads may take minutes.
+  const maxMs = 120_000;
 
   const tick = async () => {
     if (gen !== pollGeneration) return;
@@ -204,22 +199,18 @@ async function pollRuntime(id: string, startedAt: number) {
       const st = statusOf(server);
       if (st === "running") {
         await refreshTools(id);
-        statusPolling.value = false;
         return;
       }
       if (st === "error" || st === "stopped") {
-        statusPolling.value = false;
         return;
       }
     } catch {
       // Keep polling through transient API hiccups.
     }
     if (Date.now() - startedAt >= maxMs) {
-      statusTimedOut.value = true;
-      statusPolling.value = false;
       return;
     }
-    pollTimer = setTimeout(() => void tick(), 1000);
+    pollTimer = setTimeout(() => void tick(), 2000);
   };
 
   await tick();
@@ -235,7 +226,6 @@ watch(
     createdId.value = null;
     createdServer.value = null;
     discoveredTools.value = [];
-    statusTimedOut.value = false;
     submitting.value = false;
     applyItem(ui.installItem);
   },
@@ -321,7 +311,6 @@ const doneAlertType = computed(() => {
   if (!form.startNow) return "success" as const;
   if (runtimeStatus.value === "running") return "success" as const;
   if (runtimeStatus.value === "error") return "error" as const;
-  if (statusTimedOut.value) return "warning" as const;
   return "info" as const;
 });
 
@@ -341,9 +330,6 @@ const doneAlertText = computed(() => {
   }
   if (runtimeStatus.value === "error") {
     return t("installWizard.failedToStart", { id: createdId.value });
-  }
-  if (statusTimedOut.value) {
-    return t("installWizard.stillStarting", { id: createdId.value });
   }
   return t("installWizard.installedStarting", { id: createdId.value });
 });
@@ -370,17 +356,7 @@ const doneAlertText = computed(() => {
           </h2>
           <div class="wiz-chips">
             <span v-if="categoryLabel" class="chip chip-cat">{{ categoryLabel }}</span>
-            <span
-              v-if="item"
-              class="chip"
-              :class="isOnlineLibraryItem(item.tags) ? 'chip-warn' : 'chip-ok'"
-            >
-              {{
-                isOnlineLibraryItem(item.tags)
-                  ? t("installWizard.onlineRequired")
-                  : t("installWizard.localApp")
-              }}
-            </span>
+            <LibraryNetworkBadge v-if="item" :tags="item.tags" labeled />
             <span
               v-if="item && isOfficialLibraryItem(item.tags)"
               class="chip chip-ok"
@@ -538,22 +514,20 @@ const doneAlertText = computed(() => {
       </NAlert>
 
       <div v-if="form.startNow" class="status-panel">
-        <NSpin :show="statusPolling" size="small">
-          <div class="status-row">
-            <span class="block-label">{{ t("installWizard.runtime") }}</span>
-            <div class="status-vals">
-              <StatusTag :status="runtimeStatus" :error="lastError" />
-              <NText v-if="toolCount" depth="3">
-                {{ t("installWizard.toolsDiscovered", { count: toolCount }, toolCount) }}
-              </NText>
-              <NText v-else-if="runtimeStatus === 'running'" depth="3">
-                {{ t("installWizard.noToolsYet") }}
-              </NText>
-            </div>
+        <div class="status-row">
+          <span class="block-label">{{ t("installWizard.runtime") }}</span>
+          <div class="status-vals">
+            <StatusTag :status="runtimeStatus" :error="lastError" />
+            <NText v-if="toolCount" depth="3">
+              {{ t("installWizard.toolsDiscovered", { count: toolCount }, toolCount) }}
+            </NText>
+            <NText v-else-if="runtimeStatus === 'running'" depth="3">
+              {{ t("installWizard.noToolsYet") }}
+            </NText>
           </div>
-        </NSpin>
+        </div>
+        <p class="muted watch-hint">{{ t("installWizard.watchLogsHint") }}</p>
         <NButton
-          v-if="runtimeStatus === 'error' || statusTimedOut"
           size="small"
           style="margin-top: 0.65rem"
           @click="openServer"
@@ -865,6 +839,11 @@ const doneAlertText = computed(() => {
   margin: 0;
   color: var(--app-text-muted);
   font-size: 0.9rem;
+}
+.watch-hint {
+  margin-top: 0.65rem;
+  font-size: 0.84rem;
+  line-height: 1.4;
 }
 .advanced {
   margin-top: -0.15rem;

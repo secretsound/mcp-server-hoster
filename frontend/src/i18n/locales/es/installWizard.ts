@@ -41,12 +41,15 @@ export default {
   failedToStart: "{id} se instaló pero no pudo iniciarse.",
   stillStarting:
     "{id} sigue iniciando — revisa los registros si no arranca.",
-  installedStarting: "{id} está instalado e iniciando…",
+  installedStarting:
+    "{id} está instalado e iniciando en segundo plano. Las descargas de paquetes pueden tardar — abre el servidor y mira los registros para ver el progreso.",
   runtime: "Tiempo de ejecución",
   toolsDiscovered:
     "{count} herramienta descubierta | {count} herramientas descubiertas",
   noToolsYet: "Aún no se han reportado herramientas",
   openServerLogs: "Abrir registros del servidor",
+  watchLogsHint:
+    "Las descargas y el arranque corren en segundo plano. Usa Abrir servidor para seguir los registros en vivo.",
   dedicatedEndpoint: "Endpoint MCP dedicado",
   unifiedGateway: "Puerta de enlace unificada (espacio de nombres {ns})",
   continue: "Continuar",

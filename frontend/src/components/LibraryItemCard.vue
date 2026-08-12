@@ -6,9 +6,9 @@ import { InformationCircleOutline } from "@vicons/ionicons5";
 import type { LibraryItem } from "../types";
 import {
   isOfficialLibraryItem,
-  isOnlineLibraryItem,
   requiredEnvKeysFromPairs,
 } from "../utils/serverForm";
+import LibraryNetworkBadge from "./LibraryNetworkBadge.vue";
 
 const props = defineProps<{
   item: LibraryItem;
@@ -52,16 +52,6 @@ const packageLabel = computed(() => {
 const envCount = computed(() =>
   requiredEnvKeysFromPairs(props.item.preset?.env).length,
 );
-
-const networkKind = computed<"local" | "online">(() =>
-  isOnlineLibraryItem(props.item.tags) ? "online" : "local",
-);
-
-const networkLabel = computed(() =>
-  networkKind.value === "online"
-    ? t("library.onlineRequired")
-    : t("library.localApp"),
-);
 </script>
 
 <template>
@@ -72,12 +62,7 @@ const networkLabel = computed(() =>
         <div class="lib-item-title-row">
           <h3 class="lib-item-name">{{ item.name }}</h3>
           <div class="lib-item-badges">
-            <span
-              class="status"
-              :class="networkKind === 'online' ? 'status-online' : 'status-local'"
-            >
-              {{ networkLabel }}
-            </span>
+            <LibraryNetworkBadge :tags="item.tags" />
             <span v-if="installedBadge" class="status status-ok">
               {{ installedBadge }}
             </span>
@@ -235,21 +220,6 @@ const networkLabel = computed(() =>
 }
 .status-feat {
   background: color-mix(in srgb, var(--app-text-muted) 12%, transparent);
-}
-.status-local {
-  background: color-mix(in srgb, var(--app-chip-active-text) 12%, transparent);
-  border-color: color-mix(in srgb, var(--app-chip-active-text) 28%, transparent);
-  color: var(--app-chip-active-text);
-}
-.status-online {
-  background: color-mix(in srgb, #b8860b 14%, transparent);
-  border-color: color-mix(in srgb, #b8860b 32%, transparent);
-  color: #9a7209;
-}
-:global(html[data-theme="dark"]) .status-online {
-  color: #e0b44a;
-  background: color-mix(in srgb, #e0b44a 14%, transparent);
-  border-color: color-mix(in srgb, #e0b44a 30%, transparent);
 }
 
 .lib-item-sub {

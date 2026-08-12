@@ -83,11 +83,13 @@ const RO_BINDS = [
   "/lib",
   "/lib64",
   "/sbin",
-  "/dev",
   "/proc",
   // Host identity / TLS / DNS — landlock path-beneath needs directories.
   "/etc",
 ];
+
+/** Device nodes (/dev/null, etc.) need write+ioctl; RO /dev breaks shell redirects. */
+const DEV_BINDS = ["/dev"];
 
 function landlockCandidates(): string[] {
   return [
@@ -372,6 +374,7 @@ export async function wrapSandboxCommand(
       script,
       ...roPaths.flatMap((p) => ["--ro", p]),
       ...rwPaths.flatMap((p) => ["--rw", p]),
+      ...DEV_BINDS.flatMap((p) => ["--rw", p]),
       "--",
       effectiveCommand,
       ...args,

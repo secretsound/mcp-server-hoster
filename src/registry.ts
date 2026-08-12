@@ -55,11 +55,10 @@ export class ServerRegistry {
   async create(input: CreateServerInput) {
     const created = await this.servers.create(input);
     if (created.enabled) {
-      try {
-        await this.pm.start(created.id);
-      } catch (err) {
+      // Don't block the install response on package download / MCP handshake.
+      void this.pm.start(created.id).catch((err) => {
         console.error(`[registry] auto-start failed for ${created.id}:`, err);
-      }
+      });
     } else {
       adminBus.emit({ type: "servers" });
     }

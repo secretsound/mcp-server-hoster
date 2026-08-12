@@ -40,12 +40,15 @@ export default {
   failedToStart: "{id} was installed but failed to start.",
   stillStarting:
     "{id} is still starting — check logs if it doesn’t come up.",
-  installedStarting: "{id} is installed and starting…",
+  installedStarting:
+    "{id} is installed and starting in the background. Package downloads can take a while — open the server and watch the logs for progress.",
   runtime: "Runtime",
   toolsDiscovered:
     "{count} tool discovered | {count} tools discovered",
   noToolsYet: "No tools reported yet",
   openServerLogs: "Open server logs",
+  watchLogsHint:
+    "Downloads and startup run in the background. Use Open server to follow live logs.",
   dedicatedEndpoint: "Dedicated MCP endpoint",
   unifiedGateway: "Unified gateway (namespaced as {ns})",
   continue: "Continue",

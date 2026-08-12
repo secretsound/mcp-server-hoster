@@ -62,12 +62,33 @@ export async function prepareSandbox(
 
   await ensureDir(cwd);
 
+  // Shared package caches under DATA_DIR so uvx/npx cold starts are not
+  // re-downloaded per server (HOME is still per-server for isolation).
+  const cacheRoot = join(config.dataDir, "cache");
+  const shareRoot = join(config.dataDir, "share");
+  const uvCache = Deno.env.get("UV_CACHE_DIR")?.trim() || join(cacheRoot, "uv");
+  const npmCache = Deno.env.get("npm_config_cache")?.trim() ||
+    Deno.env.get("NPM_CONFIG_CACHE")?.trim() ||
+    join(cacheRoot, "npm");
+  const uvPython = Deno.env.get("UV_PYTHON_INSTALL_DIR")?.trim() ||
+    join(shareRoot, "uv", "python");
+
+  await ensureDir(join(workDir, "tmp"));
+  await ensureDir(uvCache);
+  await ensureDir(npmCache);
+  await ensureDir(uvPython);
+
   const baseEnv: Record<string, string> = {
     HOME: workDir,
     TMPDIR: join(workDir, "tmp"),
     PATH: Deno.env.get("PATH") ?? "/usr/local/bin:/usr/bin:/bin",
+    XDG_CACHE_HOME: cacheRoot,
+    XDG_DATA_HOME: shareRoot,
+    UV_CACHE_DIR: uvCache,
+    UV_PYTHON_INSTALL_DIR: uvPython,
+    npm_config_cache: npmCache,
+    NPM_CONFIG_CACHE: npmCache,
   };
-  await ensureDir(baseEnv.TMPDIR);
 
   return {
     workDir,

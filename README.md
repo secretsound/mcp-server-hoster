@@ -1,6 +1,6 @@
-# MCP Hoster
+# MCP Server Hoster
 
-Self-hosted [Model Context Protocol](https://modelcontextprotocol.io/) gateway. Run MCP servers as local processes, expose them on one Streamable HTTP endpoint, and manage them from a web UI.
+Self-hosted [Model Context Protocol](https://modelcontextprotocol.io/) server hoster. I was tired of having to spin up multiple containers just to run an NPX, UVX, or other MCP server seperately. That's why this project was created. To simplify the process, this project allows you to run an MCP server as a local process, expose it on one Streamable HTTP endpoint, and manage it from a web UI.
 
 ## Quick start
 
@@ -54,6 +54,7 @@ Most options live in **Settings** after first boot. Bootstrap via env (see [`.en
 | `DATABASE_URL` | `sqlite://…` (default) or `postgres://…` |
 | `HOST_PUBLIC_URL` | Public origin for OAuth |
 | `GATEWAY_PUBLIC_URL` | Public `/mcp` URL for clients |
+| `MCP_BACKEND_CONNECT_TIMEOUT_MS` | Max wait for MCP child handshake on start (default `300000` = 5m; first `uvx`/`npx` downloads can be slow) |
 
 ## License
 

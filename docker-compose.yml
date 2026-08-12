@@ -14,14 +14,8 @@ services:
       DATA_DIR: "/data"
       DATABASE_URL: ${DATABASE_URL:-sqlite:///data/mcp-hoster.db}
       MIGRATIONS_DIR: "/app/migrations"
-      # Optional overrides (image defaults: demo seed + GitHub library catalog)
-      # SEED_PATH: ""
-      # LIBRARY_SEED_PATH: /app/catalog/catalog.json
-      # Site URL for SSO redirects / absolute links (set in .env for reverse-proxy deploys).
       HOST_PUBLIC_URL: ${HOST_PUBLIC_URL:-}
-      # Advertised MCP endpoint; defaults to HOST_PUBLIC_URL/mcp when blank at runtime via UI save.
       GATEWAY_PUBLIC_URL: ${GATEWAY_PUBLIC_URL:-}
-      # Required on first boot (fail-closed). Copy .env.example → .env.
       BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:?Set BOOTSTRAP_ADMIN_EMAIL}
       BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:?Set BOOTSTRAP_ADMIN_PASSWORD}
       BOOTSTRAP_ADMIN_DISPLAY_NAME: ${BOOTSTRAP_ADMIN_DISPLAY_NAME:-Admin}

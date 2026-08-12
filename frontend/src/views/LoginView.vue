@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { onMounted, reactive, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import {
@@ -24,8 +24,10 @@ const router = useRouter();
 const route = useRoute();
 const message = useMessage();
 
-const email = ref("");
-const password = ref("");
+const form = reactive({
+  email: "",
+  password: "",
+});
 const submitting = ref(false);
 const errorMsg = ref("");
 
@@ -36,10 +38,17 @@ onMounted(() => {
 });
 
 async function submit() {
+  const email = form.email.trim();
+  const password = form.password;
+  if (!email || !password) {
+    errorMsg.value = t("login.emailPasswordRequired");
+    return;
+  }
+
   submitting.value = true;
   errorMsg.value = "";
   try {
-    await auth.login(email.value.trim(), password.value);
+    await auth.login(email, password);
     message.success(t("login.signedIn"));
     const redirect = typeof route.query.redirect === "string"
       ? route.query.redirect
@@ -96,24 +105,42 @@ async function submit() {
         <NDivider style="margin: 0.4rem 0">{{ t("login.orEmail") }}</NDivider>
       </NSpace>
 
-      <NForm @submit.prevent="submit">
-        <NFormItem :label="t('login.email')" path="email">
+      <NForm
+        :model="form"
+        :show-require-mark="false"
+        @submit.prevent="submit"
+      >
+        <NFormItem
+          :label="t('login.email')"
+          path="email"
+          :show-feedback="false"
+          :required="true"
+        >
           <NInput
-            v-model:value="email"
-            type="text"
+            id="login-email"
+            v-model:value="form.email"
+            type="email"
+            name="email"
             autocomplete="username"
+            inputmode="email"
+            autofocus
             :placeholder="t('login.emailPlaceholder')"
-            @keydown.enter="submit"
           />
         </NFormItem>
-        <NFormItem :label="t('login.password')" path="password">
+        <NFormItem
+          :label="t('login.password')"
+          path="password"
+          :show-feedback="false"
+          :required="true"
+        >
           <NInput
-            v-model:value="password"
+            id="login-password"
+            v-model:value="form.password"
             type="password"
+            name="password"
             show-password-on="click"
             autocomplete="current-password"
             placeholder="••••••••"
-            @keydown.enter="submit"
           />
         </NFormItem>
         <NSpace justify="end">
@@ -121,7 +148,7 @@ async function submit() {
             type="primary"
             attr-type="submit"
             :loading="submitting"
-            :disabled="!email.trim() || !password"
+            :disabled="!form.email.trim() || !form.password"
           >
             {{ t("login.signIn") }}
           </NButton>
@@ -178,5 +205,18 @@ async function submit() {
 .login-shell.dark .brand-mark {
   background: #3ecf9a;
   color: #0f161c;
+}
+
+/* Keep login inputs visible even if a password manager tries to hide username. */
+:deep(#login-email),
+:deep(#login-password) {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  min-height: 34px;
+}
+:deep(.n-form-item) {
+  display: grid !important;
+  visibility: visible !important;
 }
 </style>

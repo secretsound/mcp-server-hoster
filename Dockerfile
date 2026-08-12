@@ -26,10 +26,6 @@ RUN apt-get update \
   && ln -sf /root/.local/bin/uvx /usr/local/bin/uvx
 
 ENV DENO_DIR=/deno-dir \
-    NPM_CONFIG_CACHE=/data/cache/npm \
-    npm_config_cache=/data/cache/npm \
-    UV_CACHE_DIR=/data/cache/uv \
-    UV_PYTHON_INSTALL_DIR=/data/share/uv/python \
     DATA_DIR=/data \
     HOST_BIND=0.0.0.0 \
     HOST_PORT=8080 \
@@ -39,7 +35,7 @@ ENV DENO_DIR=/deno-dir \
     MIGRATIONS_DIR=/app/migrations \
     MCP_BACKEND_CONNECT_TIMEOUT_MS=300000
 
-RUN mkdir -p /data /data/cache/npm /data/cache/uv /data/share/uv/python /deno-dir \
+RUN mkdir -p /data /deno-dir \
   && groupadd --gid 10001 mcp \
   && useradd --uid 10001 --gid mcp --home-dir /home/mcp --create-home mcp \
   && chown -R mcp:mcp /data /deno-dir

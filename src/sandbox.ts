@@ -76,6 +76,13 @@ export async function prepareSandbox(
   await ensureDir(npmCache);
   await ensureDir(uvPython);
 
+  // uv clones git deps into the cache; Docker volume UID mismatches trigger
+  // "fatal: detected dubious ownership". Trust the per-server HOME tree.
+  await Deno.writeTextFile(
+    join(workDir, ".gitconfig"),
+    "[safe]\n\tdirectory = *\n",
+  );
+
   const baseEnv: Record<string, string> = {
     HOME: workDir,
     TMPDIR: tmpDir,
@@ -86,12 +93,30 @@ export async function prepareSandbox(
     UV_PYTHON_INSTALL_DIR: uvPython,
     npm_config_cache: npmCache,
     NPM_CONFIG_CACHE: npmCache,
+    // Also cover any leftover shared cache paths from older images.
+    GIT_CONFIG_COUNT: "1",
+    GIT_CONFIG_KEY_0: "safe.directory",
+    GIT_CONFIG_VALUE_0: "*",
   };
+
+  // Server-provided env can add secrets/config, but must not escape the sandbox tree.
+  const env = { ...baseEnv, ...server.env };
+  env.HOME = workDir;
+  env.TMPDIR = tmpDir;
+  env.XDG_CACHE_HOME = cacheRoot;
+  env.XDG_DATA_HOME = shareRoot;
+  env.UV_CACHE_DIR = uvCache;
+  env.UV_PYTHON_INSTALL_DIR = uvPython;
+  env.npm_config_cache = npmCache;
+  env.NPM_CONFIG_CACHE = npmCache;
+  env.GIT_CONFIG_COUNT = "1";
+  env.GIT_CONFIG_KEY_0 = "safe.directory";
+  env.GIT_CONFIG_VALUE_0 = "*";
 
   return {
     workDir,
     cwd,
-    env: { ...baseEnv, ...server.env },
+    env,
     logPath: join(config.logsDir, `${server.id}.log`),
   };
 }

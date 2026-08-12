@@ -112,6 +112,28 @@ export function createAuthRoutes(auth: AuthService): Hono<AuthEnv> {
     return c.json({ user });
   });
 
+  api.patch("/me", requireSession(), async (c) => {
+    const me = actor(c);
+    if (!me) return c.json({ error: "Authentication required" }, 401);
+    try {
+      const body = await c.req.json<{
+        displayName?: string | null;
+        email?: string;
+        currentPassword?: string;
+        password?: string;
+      }>();
+      const user = await auth.updateMyProfile(me.id, {
+        displayName: body.displayName,
+        email: body.email,
+        currentPassword: body.currentPassword,
+        password: body.password,
+      });
+      return c.json({ user });
+    } catch (err) {
+      return c.json({ error: err instanceof Error ? err.message : String(err) }, 400);
+    }
+  });
+
   // --- users ---
 
   api.get("/users", requirePermission("users:read"), async (c) => {
@@ -153,6 +175,7 @@ export function createAuthRoutes(auth: AuthService): Hono<AuthEnv> {
         disabled?: boolean;
         grants?: ScopeGrant[];
         password?: string;
+        email?: string;
       }>();
       const user = await auth.updateUser(c.req.param("id"), body);
       return c.json({ user });

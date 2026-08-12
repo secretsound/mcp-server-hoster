@@ -203,6 +203,7 @@ export type AuthUser = {
   updatedAt: string;
   grants: ScopeGrant[];
   permissions: Permission[];
+  hasPassword?: boolean;
 };
 
 export type RoleRecord = {

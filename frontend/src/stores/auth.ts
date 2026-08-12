@@ -122,6 +122,7 @@ export const useAuthStore = defineStore("auth", () => {
       disabled?: boolean;
       grants?: ScopeGrant[];
       password?: string;
+      email?: string;
     },
   ) {
     const { user: updated } = await api<{ user: AuthUser }>(
@@ -129,6 +130,20 @@ export const useAuthStore = defineStore("auth", () => {
       { method: "PATCH", body: JSON.stringify(patch) },
     );
     if (user.value?.id === id) user.value = updated;
+    return updated;
+  }
+
+  async function updateMyProfile(patch: {
+    displayName?: string | null;
+    email?: string;
+    currentPassword?: string;
+    password?: string;
+  }) {
+    const { user: updated } = await api<{ user: AuthUser }>("/api/auth/me", {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    });
+    user.value = updated;
     return updated;
   }
 
@@ -362,6 +377,7 @@ export const useAuthStore = defineStore("auth", () => {
     listUsers,
     createUser,
     updateUser,
+    updateMyProfile,
     deleteUser,
     listRoles,
     listPermissions,

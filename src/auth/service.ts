@@ -441,6 +441,7 @@ export class AuthService {
       disabled?: boolean;
       grants?: ScopeGrant[];
       password?: string;
+      email?: string;
     },
   ): Promise<PublicUser> {
     const existing = await this.repo.getUser(id);
@@ -452,6 +453,21 @@ export class AuthService {
         throw new Error("Password must be at least 8 characters");
       }
       passwordHash = await hashPassword(patch.password);
+    }
+
+    let email: string | undefined;
+    if (patch.email !== undefined) {
+      const normalized = patch.email.trim().toLowerCase();
+      if (!normalized || !normalized.includes("@")) {
+        throw new Error("A valid email is required");
+      }
+      if (normalized !== existing.email) {
+        const clash = await this.repo.getUserByEmail(existing.tenantId, normalized);
+        if (clash && clash.id !== id) {
+          throw new Error("User with that email already exists");
+        }
+      }
+      email = normalized;
     }
 
     const role = patch.role ?? existing.role;
@@ -481,6 +497,7 @@ export class AuthService {
     }
 
     await this.repo.updateUser(id, {
+      email,
       passwordHash,
       role,
       displayName: patch.displayName,
@@ -492,6 +509,44 @@ export class AuthService {
     }
 
     return await this.repo.toPublicUser((await this.repo.getUser(id))!);
+  }
+
+  /** Self-service profile updates (name, email, password). */
+  async updateMyProfile(
+    userId: string,
+    patch: {
+      displayName?: string | null;
+      email?: string;
+      currentPassword?: string;
+      password?: string;
+    },
+  ): Promise<PublicUser> {
+    const existing = await this.repo.getUser(userId);
+    if (!existing) throw new Error("User not found");
+
+    const wantsEmail = patch.email !== undefined &&
+      patch.email.trim().toLowerCase() !== existing.email;
+    const wantsPassword = patch.password !== undefined && patch.password.length > 0;
+    const needsVerify = wantsEmail || wantsPassword;
+
+    if (needsVerify) {
+      if (existing.passwordHash === OAUTH_MARKER) {
+        throw new Error(
+          "This account uses single sign-on — email and password are managed by your identity provider",
+        );
+      }
+      if (!patch.currentPassword) {
+        throw new Error("Current password is required to change email or password");
+      }
+      const ok = await verifyPassword(patch.currentPassword, existing.passwordHash);
+      if (!ok) throw new Error("Current password is incorrect");
+    }
+
+    return await this.updateUser(userId, {
+      displayName: patch.displayName,
+      email: wantsEmail ? patch.email : undefined,
+      password: wantsPassword ? patch.password : undefined,
+    });
   }
 
   async deleteUser(id: string): Promise<void> {

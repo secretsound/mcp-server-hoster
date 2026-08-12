@@ -2,22 +2,17 @@
 import { computed, onMounted, reactive, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import {
-  NAlert,
   NButton,
-  NCard,
   NCheckbox,
   NEmpty,
   NForm,
   NFormItem,
   NInput,
   NModal,
-  NSpace,
-  NTag,
-  NText,
-  NThing,
   useDialog,
   useMessage,
 } from "naive-ui";
+import RoleCard from "../components/RoleCard.vue";
 import { useAuthStore } from "../stores/auth";
 import type { PermissionInfo, RoleRecord } from "../types";
 
@@ -179,37 +174,10 @@ function remove(role: RoleRecord) {
     },
   });
 }
-
-const PREVIEW_LIMIT = 6;
-
-function previewPerms(role: RoleRecord): string[] {
-  const sorted = [...role.permissions].sort((a, b) => {
-    // Surface high-signal perms first.
-    const rank = (p: string) =>
-      p === "mcp:full" ? 0 : p.endsWith(":write") ? 1 : 2;
-    return rank(a) - rank(b) || a.localeCompare(b);
-  });
-  return sorted.slice(0, PREVIEW_LIMIT);
-}
-
-function overflowCount(role: RoleRecord): number {
-  return Math.max(0, role.permissions.length - PREVIEW_LIMIT);
-}
-
-function formatWhen(iso: string | null | undefined): string | null {
-  if (!iso) return null;
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return null;
-  return d.toLocaleString(undefined, {
-    month: "numeric",
-    day: "numeric",
-    year: "numeric",
-  });
-}
 </script>
 
 <template>
-  <div>
+  <div class="roles-page">
     <div class="page-head">
       <div>
         <h1>{{ t("roles.title") }}</h1>
@@ -268,105 +236,23 @@ function formatWhen(iso: string | null | undefined): string | null {
     </NEmpty>
 
     <div v-else class="cards">
-      <NCard
+      <RoleCard
         v-for="role in visibleRoles"
         :key="role.id"
-        size="small"
-        hoverable
-        class="role-card"
-      >
-        <NThing>
-          <template #header>
-            <span class="title">{{ role.name }}</span>
-          </template>
-          <template #header-extra>
-            <NTag
-              v-if="role.isSystem"
-              size="small"
-              type="info"
-              :bordered="false"
-            >
-              {{ t("roles.system") }}
-            </NTag>
-            <NTag v-else size="small" :bordered="false">{{ t("roles.custom") }}</NTag>
-          </template>
-          <template #description>
-            <code class="slug">{{ role.slug }}</code>
-          </template>
-
-          <div class="card-body">
-            <p class="desc">
-              {{ role.description || t("roles.noDescription") }}
-            </p>
-            <NSpace :size="6" class="meta">
-              <NTag size="small" :bordered="false">
-                {{ t("roles.permissionsCount", { count: role.permissions.length }) }}
-              </NTag>
-              <NTag
-                v-if="role.permissions.includes('mcp:full')"
-                size="small"
-                type="success"
-                :bordered="false"
-              >
-                mcp:full
-              </NTag>
-            </NSpace>
-            <div class="perms">
-              <NTag
-                v-for="p in previewPerms(role)"
-                :key="p"
-                size="tiny"
-                :bordered="false"
-                :type="p === 'mcp:full' ? 'success' : 'default'"
-              >
-                {{ p }}
-              </NTag>
-              <NTag
-                v-if="overflowCount(role)"
-                size="tiny"
-                :bordered="false"
-              >
-                {{ t("roles.more", { count: overflowCount(role) }) }}
-              </NTag>
-            </div>
-            <NText
-              v-if="formatWhen(role.createdAt)"
-              depth="3"
-              class="dates"
-            >
-              {{ t("roles.created", { when: formatWhen(role.createdAt) }) }}
-            </NText>
-          </div>
-
-          <template #action>
-            <NSpace class="card-actions">
-              <NButton
-                v-if="auth.can('roles:write')"
-                size="small"
-                @click="openEdit(role)"
-              >
-                {{ t("roles.edit") }}
-              </NButton>
-              <NButton
-                v-if="auth.can('roles:write') && !role.isSystem"
-                size="small"
-                type="error"
-                secondary
-                @click="remove(role)"
-              >
-                {{ t("roles.delete") }}
-              </NButton>
-            </NSpace>
-          </template>
-        </NThing>
-      </NCard>
+        :role="role"
+        :can-write="auth.can('roles:write')"
+        @edit="openEdit(role)"
+        @delete="remove(role)"
+      />
     </div>
 
     <NModal
       v-model:show="modalOpen"
       preset="card"
       :title="editing ? t('roles.editRole') : t('roles.addRole')"
+      class="role-modal"
       style="width: min(640px, 96vw)"
+      :bordered="false"
     >
       <NForm
         label-placement="top"
@@ -402,17 +288,13 @@ function formatWhen(iso: string | null | undefined): string | null {
 
         <section class="form-section">
           <h3 class="section-title">{{ t("roles.permissions") }}</h3>
-          <NAlert
-            v-if="editing?.isSystem"
-            type="info"
-            :bordered="false"
-          >
+          <div v-if="editing?.isSystem" class="banner banner-info">
             {{ t("roles.systemFixed") }}
-          </NAlert>
+          </div>
           <template v-else>
-            <NText depth="3" class="section-hint">
+            <p class="section-hint">
               {{ t("roles.selectedHint", { count: form.permissions.length }) }}
-            </NText>
+            </p>
             <div class="perm-groups">
               <div
                 v-for="[area, perms] in catalogGroups"
@@ -427,12 +309,12 @@ function formatWhen(iso: string | null | undefined): string | null {
                   >
                     <span class="group-title">{{ area }}</span>
                   </NCheckbox>
-                  <NText depth="3" class="group-count">
+                  <span class="group-count">
                     {{
                       perms.filter((p) => form.permissions.includes(p.id))
                         .length
                     }}/{{ perms.length }}
-                  </NText>
+                  </span>
                 </div>
                 <div class="perm-list">
                   <NCheckbox
@@ -466,11 +348,16 @@ function formatWhen(iso: string | null | undefined): string | null {
 </template>
 
 <style scoped>
+.roles-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
 .filters {
   display: flex;
   flex-wrap: wrap;
   gap: 0.45rem;
-  margin-bottom: 1rem;
 }
 .chip {
   border: 1px solid var(--app-border);
@@ -492,75 +379,14 @@ function formatWhen(iso: string | null | undefined): string | null {
   border-color: var(--app-chip-active-border);
   color: var(--app-chip-active-text);
 }
-.role-card {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 0.9rem;
+  align-items: stretch;
 }
-.role-card :deep(.n-card__content) {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-.role-card :deep(.n-thing) {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-.role-card :deep(.n-thing-main) {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-.role-card :deep(.n-thing-main__content) {
-  flex: 1;
-}
-.role-card :deep(.n-thing-main__action) {
-  margin-top: auto;
-  padding-top: 0.85rem;
-}
-.card-body {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  margin-top: 0.15rem;
-}
-.title {
-  font-weight: 600;
-  font-size: 1.05rem;
-  color: var(--app-text);
-}
-.slug {
-  font-size: 0.82rem;
-  color: var(--app-text-muted);
-}
-.desc {
-  margin: 0;
-  color: var(--app-text-soft);
-  font-size: 0.9rem;
-  line-height: 1.45;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-.meta {
-  margin: 0;
-}
-.perms {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-}
-.dates {
-  font-size: 0.78rem;
-}
-.card-actions {
-  width: 100%;
-}
+
 .role-form {
   display: flex;
   flex-direction: column;
@@ -573,17 +399,17 @@ function formatWhen(iso: string | null | undefined): string | null {
 }
 .section-title {
   margin: 0 0 0.55rem;
-  font-size: 0.78rem;
-  font-weight: 600;
-  letter-spacing: 0.05em;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
   color: var(--app-text-muted);
 }
 .section-hint {
-  display: block;
   margin: 0 0 0.75rem;
   font-size: 0.85rem;
   line-height: 1.4;
+  color: var(--app-text-muted);
 }
 .grid-2 {
   display: grid;
@@ -595,6 +421,22 @@ function formatWhen(iso: string | null | undefined): string | null {
     grid-template-columns: 1fr;
   }
 }
+.banner {
+  padding: 0.75rem 0.9rem;
+  border-radius: 11px;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  border: 1px solid var(--app-border);
+}
+.banner-info {
+  background: color-mix(in srgb, #2f6fed 10%, transparent);
+  border-color: color-mix(in srgb, #2f6fed 28%, transparent);
+  color: var(--app-text-soft);
+}
+:global(html[data-theme="dark"]) .banner-info {
+  background: color-mix(in srgb, #6aa1ff 12%, transparent);
+  border-color: color-mix(in srgb, #6aa1ff 28%, transparent);
+}
 .perm-groups {
   display: flex;
   flex-direction: column;
@@ -605,8 +447,8 @@ function formatWhen(iso: string | null | undefined): string | null {
 }
 .perm-group {
   border: 1px solid var(--app-border);
-  border-radius: 10px;
-  background: var(--app-surface);
+  border-radius: 12px;
+  background: var(--app-surface-raised);
   padding: 0.65rem 0.75rem;
 }
 .group-head {
@@ -624,6 +466,7 @@ function formatWhen(iso: string | null | undefined): string | null {
 }
 .group-count {
   font-size: 0.78rem;
+  color: var(--app-text-muted);
 }
 .perm-list {
   display: flex;
@@ -647,5 +490,18 @@ function formatWhen(iso: string | null | undefined): string | null {
   margin-top: 1.25rem;
   padding-top: 1rem;
   border-top: 1px solid var(--app-border);
+}
+</style>
+
+<style>
+.role-modal.n-card {
+  border-radius: 16px !important;
+  overflow: hidden;
+}
+.role-modal .n-card-header {
+  padding: 1.1rem 1.25rem 0.75rem !important;
+}
+.role-modal .n-card__content {
+  padding: 0.35rem 1.25rem 1.15rem !important;
 }
 </style>

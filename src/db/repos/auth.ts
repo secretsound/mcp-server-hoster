@@ -42,6 +42,8 @@ export type UserRecord = {
 export type PublicUser = Omit<UserRecord, "passwordHash"> & {
   grants: ScopeGrant[];
   permissions: Permission[];
+  /** False for SSO-only accounts (no local password). */
+  hasPassword: boolean;
 };
 
 export type SessionRecord = {
@@ -432,6 +434,7 @@ export class AuthRepository {
   async updateUser(
     id: string,
     patch: {
+      email?: string;
       passwordHash?: string;
       role?: UserRole;
       displayName?: string | null;
@@ -441,11 +444,15 @@ export class AuthRepository {
     const existing = await this.getUser(id);
     if (!existing) throw new Error(`User not found: ${id}`);
     const ts = now();
+    const email = patch.email !== undefined
+      ? patch.email.trim().toLowerCase()
+      : existing.email;
     await this.db.prepare(`
       UPDATE users SET
-        password_hash = ?, role = ?, display_name = ?, disabled = ?, updated_at = ?
+        email = ?, password_hash = ?, role = ?, display_name = ?, disabled = ?, updated_at = ?
       WHERE id = ?
     `).run(
+      email,
       patch.passwordHash ?? existing.passwordHash,
       patch.role ?? existing.role,
       patch.displayName !== undefined ? patch.displayName : existing.displayName,
@@ -511,11 +518,12 @@ export class AuthRepository {
   }
 
   async toPublicUser(user: UserRecord): Promise<PublicUser> {
-    const { passwordHash: _pw, ...rest } = user;
+    const { passwordHash, ...rest } = user;
     const permissions = await this.permissionsForRole(user.tenantId, user.role);
     const fullMcp = hasPermission(permissions, "mcp:full");
     return {
       ...rest,
+      hasPassword: passwordHash !== OAUTH_PASSWORD_MARKER,
       permissions,
       grants: fullMcp
         ? [{ serverId: "*", tools: ["*"] }]

@@ -1,6 +1,10 @@
 export default {
   title: "Connect",
   subtitle: "Point MCP clients at this host’s unified gateway.",
+  setupKicker: "Gateway",
+  setupTitle: "Choose credentials & URL",
+  clientsTitle: "Clients",
+  clientsSub: "Copy-paste guides for popular MCP apps",
   apiKeyForSnippets: "API key for snippets",
   selectKey: "Select a key",
   authDisabledHint: "Auth is disabled — snippets omit Bearer headers.",

@@ -1,49 +1,40 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import { useRouter } from "vue-router";
 import {
   NAlert,
   NButton,
-  NCard,
   NEmpty,
   NIcon,
   NInput,
   NSpin,
-  NSpace,
-  NTag,
   NText,
-  NThing,
 } from "naive-ui";
 import { SearchOutline } from "@vicons/ionicons5";
 import type { LibraryCategoryId, LibraryItem } from "../types";
+import LibraryItemCard from "../components/LibraryItemCard.vue";
+import LibraryItemInfoModal from "../components/LibraryItemInfoModal.vue";
 import { useAuthStore } from "../stores/auth";
 import { useLibraryStore } from "../stores/library";
 import { useServersStore } from "../stores/servers";
 import { useUiStore } from "../stores/ui";
-import {
-  displayLibraryTags,
-  isOfficialLibraryItem,
-  isSelfHostedLibraryItem,
-  requiredEnvKeysFromPairs,
-} from "../utils/serverForm";
+import { libraryInstances } from "../utils/serverForm";
 
 const { t } = useI18n();
 const servers = useServersStore();
 const library = useLibraryStore();
 const ui = useUiStore();
 const auth = useAuthStore();
-const router = useRouter();
 const canInstall = computed(() => auth.can("servers:write"));
 
 const query = ref("");
 const category = ref<"all" | LibraryCategoryId>("all");
+const infoItem = ref<LibraryItem | null>(null);
+const infoOpen = ref(false);
 
 onMounted(() => {
   void library.ensureLoaded();
 });
-
-const installed = computed(() => new Set(servers.servers.map((s) => s.id)));
 
 const categoryOptions = computed(() => [
   {
@@ -112,30 +103,24 @@ function install(item: LibraryItem) {
   ui.openInstall(item);
 }
 
-function openServer(id: string) {
-  void router.push(`/servers/${encodeURIComponent(id)}`);
+function showInfo(item: LibraryItem) {
+  infoItem.value = item;
+  infoOpen.value = true;
 }
 
-function launcherOf(item: LibraryItem): string {
-  const launcher = item.preset?.launcher;
-  if (launcher === "npx" || launcher === "uvx") return launcher;
-  if (launcher === "custom") return item.preset?.command?.trim() || "custom";
-  return "custom";
-}
-
-function packageOf(item: LibraryItem): string | null {
-  const pkg = item.preset?.package?.trim();
-  if (!pkg) return null;
-  const ver = item.preset?.packageVersion?.trim();
-  return ver ? `${pkg}@${ver}` : pkg;
-}
-
-function requiredEnvCount(item: LibraryItem): number {
-  return requiredEnvKeysFromPairs(item.preset?.env).length;
+function instanceCount(item: LibraryItem): number {
+  return libraryInstances(item, servers.servers).length;
 }
 
 function isInstalled(item: LibraryItem): boolean {
-  return installed.value.has(item.id) || installed.value.has(item.preset?.id || "");
+  return instanceCount(item) > 0;
+}
+
+function installedBadge(item: LibraryItem): string | null {
+  const count = instanceCount(item);
+  if (count <= 0) return null;
+  if (count === 1) return t("library.installed");
+  return t("library.installedCount", { count });
 }
 </script>
 
@@ -188,86 +173,19 @@ function isInstalled(item: LibraryItem): boolean {
           <h2>{{ t("library.featured") }}</h2>
           <NText depth="3">{{ t("library.featuredSub") }}</NText>
         </div>
-        <div class="featured-grid">
-          <NCard
+        <div class="card-grid">
+          <LibraryItemCard
             v-for="item in featured"
             :key="item.id"
-            size="small"
-            hoverable
-            class="lib-card featured-card"
-          >
-            <NThing>
-              <template #header>
-                <span class="title">{{ item.name }}</span>
-              </template>
-              <template #header-extra>
-                <NSpace :size="6" align="center">
-                  <NTag
-                    v-if="isInstalled(item)"
-                    size="small"
-                    type="success"
-                    :bordered="false"
-                  >
-                    {{ t("library.installed") }}
-                  </NTag>
-                  <NTag v-else size="small" :bordered="false">{{ t("library.featuredTag") }}</NTag>
-                </NSpace>
-              </template>
-              <template #description>
-                <span class="sub">
-                  {{ categoryLabel(item.category) }} · {{ item.source }}
-                </span>
-              </template>
-
-              <div class="card-body">
-                <p class="blurb">{{ item.blurb }}</p>
-                <NSpace :size="6" class="meta">
-                  <NTag size="tiny" :bordered="false">
-                    {{ launcherOf(item) }}
-                  </NTag>
-                  <NTag v-if="packageOf(item)" size="tiny" :bordered="false">
-                    {{ packageOf(item) }}
-                  </NTag>
-                  <NTag
-                    v-if="requiredEnvCount(item)"
-                    size="tiny"
-                    :bordered="false"
-                  >
-                    {{ t("library.envCount", { count: requiredEnvCount(item) }) }}
-                  </NTag>
-                  <NTag
-                    v-if="isSelfHostedLibraryItem(item.tags)"
-                    size="tiny"
-                    type="warning"
-                    :bordered="false"
-                  >
-                    {{ t("library.selfHosted") }}
-                  </NTag>
-                </NSpace>
-              </div>
-
-              <template #action>
-                <NSpace class="card-actions">
-                  <NButton
-                    v-if="canInstall"
-                    type="primary"
-                    size="small"
-                    :disabled="isInstalled(item)"
-                    @click="install(item)"
-                  >
-                    {{ isInstalled(item) ? t("common.installed") : t("common.install") }}
-                  </NButton>
-                  <NButton
-                    v-if="isInstalled(item)"
-                    size="small"
-                    @click="openServer(item.preset?.id || item.id)"
-                  >
-                    {{ t("common.open") }}
-                  </NButton>
-                </NSpace>
-              </template>
-            </NThing>
-          </NCard>
+            :item="item"
+            :category-label="categoryLabel(item.category)"
+            featured
+            :installed-badge="installedBadge(item)"
+            :can-install="canInstall"
+            :is-installed="isInstalled(item)"
+            @info="showInfo(item)"
+            @install="install(item)"
+          />
         </div>
       </section>
 
@@ -298,103 +216,32 @@ function isInstalled(item: LibraryItem): boolean {
           <NText v-if="group.description" depth="3">{{ group.description }}</NText>
           <NText v-else depth="3">{{ t("library.serversCount", { count: group.items.length }) }}</NText>
         </div>
-        <div class="cards">
-          <NCard
+        <div class="card-grid">
+          <LibraryItemCard
             v-for="item in group.items"
             :key="item.id"
-            size="small"
-            hoverable
-            class="lib-card"
-          >
-            <NThing>
-              <template #header>
-                <span class="title">{{ item.name }}</span>
-              </template>
-              <template #header-extra>
-                <NTag
-                  v-if="isInstalled(item)"
-                  size="small"
-                  type="success"
-                  :bordered="false"
-                >
-                  {{ t("library.installed") }}
-                </NTag>
-              </template>
-              <template #description>
-                <span class="sub">{{ item.source }}</span>
-              </template>
-
-              <div class="card-body">
-                <p class="blurb">{{ item.blurb }}</p>
-                <NSpace :size="6" class="meta">
-                  <NTag size="tiny" :bordered="false" type="info">
-                    {{ categoryLabel(item.category) }}
-                  </NTag>
-                  <NTag size="tiny" :bordered="false">
-                    {{ launcherOf(item) }}
-                  </NTag>
-                  <NTag v-if="packageOf(item)" size="tiny" :bordered="false">
-                    {{ packageOf(item) }}
-                  </NTag>
-                  <NTag
-                    v-if="requiredEnvCount(item)"
-                    size="tiny"
-                    :bordered="false"
-                  >
-                    {{ t("library.envCount", { count: requiredEnvCount(item) }) }}
-                  </NTag>
-                  <NTag
-                    v-if="isSelfHostedLibraryItem(item.tags)"
-                    size="tiny"
-                    type="warning"
-                    :bordered="false"
-                  >
-                    {{ t("library.selfHosted") }}
-                  </NTag>
-                  <NTag
-                    v-if="isOfficialLibraryItem(item.tags)"
-                    size="tiny"
-                    type="success"
-                    :bordered="false"
-                  >
-                    {{ t("library.official") }}
-                  </NTag>
-                  <NTag
-                    v-for="tag in displayLibraryTags(item.tags)"
-                    :key="tag"
-                    size="tiny"
-                    :bordered="false"
-                  >
-                    {{ tag }}
-                  </NTag>
-                </NSpace>
-              </div>
-
-              <template #action>
-                <NSpace class="card-actions">
-                  <NButton
-                    v-if="canInstall"
-                    type="primary"
-                    size="small"
-                    :disabled="isInstalled(item)"
-                    @click="install(item)"
-                  >
-                    {{ isInstalled(item) ? t("common.installed") : t("common.install") }}
-                  </NButton>
-                  <NButton
-                    v-if="isInstalled(item)"
-                    size="small"
-                    @click="openServer(item.preset?.id || item.id)"
-                  >
-                    {{ t("common.open") }}
-                  </NButton>
-                </NSpace>
-              </template>
-            </NThing>
-          </NCard>
+            :item="item"
+            :category-label="
+              category === 'all' ? categoryLabel(item.category) : undefined
+            "
+            :installed-badge="installedBadge(item)"
+            :can-install="canInstall"
+            :is-installed="isInstalled(item)"
+            @info="showInfo(item)"
+            @install="install(item)"
+          />
         </div>
       </section>
     </NSpin>
+
+    <LibraryItemInfoModal
+      v-model:show="infoOpen"
+      :item="infoItem"
+      :category-label="infoItem ? categoryLabel(infoItem.category) : ''"
+      :can-install="canInstall"
+      :is-installed="infoItem ? isInstalled(infoItem) : false"
+      @install="install"
+    />
   </div>
 </template>
 
@@ -449,84 +296,10 @@ function isInstalled(item: LibraryItem): boolean {
   letter-spacing: -0.02em;
   color: var(--app-text);
 }
-.featured-grid {
+.card-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 0.9rem;
   align-items: stretch;
-}
-.featured-card {
-  border-color: color-mix(
-    in srgb,
-    var(--n-primary-color, #3ecf9a) 35%,
-    transparent
-  );
-  background: linear-gradient(
-    160deg,
-    color-mix(in srgb, var(--n-primary-color, #3ecf9a) 10%, transparent),
-    transparent 55%
-  );
-}
-.lib-card {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-.lib-card :deep(.n-card__content) {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-.lib-card :deep(.n-thing) {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-.lib-card :deep(.n-thing-main) {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-.lib-card :deep(.n-thing-main__content) {
-  flex: 1;
-}
-.lib-card :deep(.n-thing-main__action) {
-  margin-top: auto;
-  padding-top: 0.85rem;
-}
-.card-body {
-  display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
-  margin-top: 0.15rem;
-}
-.title {
-  font-weight: 600;
-  font-size: 1.05rem;
-  color: var(--app-text);
-}
-.sub {
-  color: var(--app-text-muted);
-  font-size: 0.82rem;
-  word-break: break-word;
-}
-.blurb {
-  margin: 0;
-  color: var(--app-text-soft);
-  font-size: 0.9rem;
-  line-height: 1.45;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-.meta {
-  margin: 0;
-}
-.card-actions {
-  width: 100%;
 }
 </style>

@@ -3,29 +3,24 @@ import { computed, onMounted, reactive, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import {
-  NAlert,
   NButton,
-  NCard,
   NEmpty,
   NForm,
   NFormItem,
   NInput,
   NModal,
   NSelect,
-  NSpace,
   NSwitch,
-  NTag,
   NText,
-  NThing,
   useDialog,
   useMessage,
 } from "naive-ui";
 import GrantsCeilingHint from "../components/GrantsCeilingHint.vue";
 import ScopeEditor from "../components/ScopeEditor.vue";
+import UserCard from "../components/UserCard.vue";
 import { useAuthStore } from "../stores/auth";
 import { useServersStore } from "../stores/servers";
 import type { AuthUser, RoleRecord, ScopeGrant, UserRole } from "../types";
-import { scopesSummary } from "../utils/scopes";
 
 const { t } = useI18n();
 const auth = useAuthStore();
@@ -186,46 +181,17 @@ function roleName(slug: string): string {
   return roles.value.find((r) => r.slug === slug)?.name || slug;
 }
 
-function grantTags(user: AuthUser): string[] {
-  if (user.permissions?.includes("mcp:full")) return [t("users.fullAccess")];
-  if (!user.grants.length) return [t("users.noGrants")];
-  return user.grants.map((g) =>
-    `${g.serverId}:${g.tools.includes("*") ? "*" : t("users.toolsCount", { count: g.tools.length })}`,
-  );
-}
-
-function grantsLabel(user: AuthUser): string {
-  if (user.permissions?.includes("mcp:full")) return t("users.fullMcpAccess");
-  if (!user.grants.length) return t("users.noToolGrants");
-  return `${scopesSummary(user.grants)} — ${
-    user.grants
-      .map((g) =>
-        `${g.serverId}:${g.tools.includes("*") ? "*" : g.tools.join("|")}`,
-      )
-      .join(" · ")
-  }`;
-}
-
-function formatWhen(iso: string | null | undefined): string | null {
-  if (!iso) return null;
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return null;
-  return d.toLocaleString(undefined, {
-    month: "numeric",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
-
 function isSelf(user: AuthUser): boolean {
   return user.id === auth.user?.id;
+}
+
+function isAdmin(user: AuthUser): boolean {
+  return !!user.permissions?.includes("users:write");
 }
 </script>
 
 <template>
-  <div>
+  <div class="users-page">
     <div class="page-head">
       <div>
         <h1>{{ t("users.title") }}</h1>
@@ -285,96 +251,16 @@ function isSelf(user: AuthUser): boolean {
     </NEmpty>
 
     <div v-else class="cards">
-      <NCard
+      <UserCard
         v-for="u in visibleUsers"
         :key="u.id"
-        size="small"
-        hoverable
-        class="user-card"
-        :class="{ disabled: u.disabled }"
-      >
-        <NThing>
-          <template #header>
-            <span class="title">
-              {{ u.displayName || u.email }}
-              <NTag
-                v-if="isSelf(u)"
-                size="tiny"
-                :bordered="false"
-                style="margin-left: 0.4rem; vertical-align: middle"
-              >
-                {{ t("users.you") }}
-              </NTag>
-            </span>
-          </template>
-          <template #header-extra>
-            <NTag
-              v-if="u.disabled"
-              size="small"
-              type="error"
-              :bordered="false"
-            >
-              {{ t("users.disabled") }}
-            </NTag>
-            <NTag v-else size="small" type="success" :bordered="false">
-              {{ t("users.active") }}
-            </NTag>
-          </template>
-          <template #description>
-            <span class="sub">{{ u.email }}</span>
-          </template>
-
-          <div class="card-body">
-            <NSpace :size="6" class="meta">
-              <NTag
-                size="small"
-                :type="
-                  u.permissions?.includes('users:write') ? 'success' : 'default'
-                "
-                :bordered="false"
-              >
-                {{ roleName(u.role) }}
-              </NTag>
-              <NTag
-                v-for="label in grantTags(u)"
-                :key="label"
-                size="tiny"
-                :bordered="false"
-              >
-                {{ label }}
-              </NTag>
-            </NSpace>
-            <NText depth="3" class="grants">{{ grantsLabel(u) }}</NText>
-            <div class="dates">
-              <NText v-if="formatWhen(u.createdAt)" depth="3">
-                {{ t("users.created", { when: formatWhen(u.createdAt) }) }}
-              </NText>
-              <NText
-                v-if="formatWhen(u.updatedAt)"
-                depth="3"
-                class="detail-sep"
-              >
-                {{ t("users.updated", { when: formatWhen(u.updatedAt) }) }}
-              </NText>
-            </div>
-          </div>
-
-          <template #action>
-            <NSpace class="card-actions">
-              <NButton size="small" @click="openEdit(u)">{{ t("users.edit") }}</NButton>
-              <NButton
-                size="small"
-                type="error"
-                secondary
-                :disabled="isSelf(u)"
-                @click="remove(u)"
-              >
-                {{ t("users.delete") }}
-              </NButton>
-            </NSpace>
-          </template>
-        </NThing>
-      </NCard>
+        :user="u"
+        :role-label="roleName(u.role)"
+        :is-self="isSelf(u)"
+        :is-admin="isAdmin(u)"
+        @edit="openEdit(u)"
+        @delete="remove(u)"
+      />
     </div>
 
     <NModal
@@ -383,6 +269,7 @@ function isSelf(user: AuthUser): boolean {
       :title="editing ? t('users.editUser') : t('users.addUser')"
       class="user-modal"
       style="width: min(640px, 96vw)"
+      :bordered="false"
     >
       <NForm
         label-placement="top"
@@ -438,9 +325,7 @@ function isSelf(user: AuthUser): boolean {
         <section class="form-section">
           <h3 class="section-title">{{ t("users.access") }}</h3>
           <template v-if="!selectedRoleHasFullMcp">
-            <NText depth="3" class="section-hint">
-              {{ t("users.grantsHint") }}
-            </NText>
+            <p class="section-hint">{{ t("users.grantsHint") }}</p>
             <ScopeEditor
               v-model="form.grants"
               :server-options="serverOptions"
@@ -453,9 +338,9 @@ function isSelf(user: AuthUser): boolean {
               style="margin-top: 0.75rem"
             />
           </template>
-          <NAlert v-else type="info" :bordered="false">
+          <div v-else class="banner banner-info">
             {{ t("users.fullMcpAlert") }}
-          </NAlert>
+          </div>
         </section>
       </NForm>
 
@@ -470,11 +355,16 @@ function isSelf(user: AuthUser): boolean {
 </template>
 
 <style scoped>
+.users-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
 .filters {
   display: flex;
   flex-wrap: wrap;
   gap: 0.45rem;
-  margin-bottom: 1rem;
 }
 .chip {
   border: 1px solid var(--app-border);
@@ -496,73 +386,14 @@ function isSelf(user: AuthUser): boolean {
   border-color: var(--app-chip-active-border);
   color: var(--app-chip-active-text);
 }
-.user-card {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 0.9rem;
+  align-items: stretch;
 }
-.user-card.disabled {
-  opacity: 0.78;
-}
-.user-card :deep(.n-card__content) {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-.user-card :deep(.n-thing) {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-.user-card :deep(.n-thing-main) {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-.user-card :deep(.n-thing-main__content) {
-  flex: 1;
-}
-.user-card :deep(.n-thing-main__action) {
-  margin-top: auto;
-  padding-top: 0.85rem;
-}
-.card-body {
-  display: flex;
-  flex-direction: column;
-  gap: 0.45rem;
-  margin-top: 0.15rem;
-}
-.title {
-  font-weight: 600;
-  font-size: 1.05rem;
-  color: var(--app-text);
-}
-.sub {
-  color: var(--app-text-muted);
-  font-size: 0.82rem;
-  word-break: break-word;
-}
-.meta {
-  margin: 0;
-}
-.grants {
-  font-size: 0.85rem;
-  word-break: break-word;
-  line-height: 1.4;
-}
-.dates {
-  font-size: 0.78rem;
-  line-height: 1.35;
-}
-.detail-sep {
-  margin-left: 0.15rem;
-}
-.card-actions {
-  width: 100%;
-}
+
 .user-form {
   display: flex;
   flex-direction: column;
@@ -575,17 +406,17 @@ function isSelf(user: AuthUser): boolean {
 }
 .section-title {
   margin: 0 0 0.55rem;
-  font-size: 0.78rem;
-  font-weight: 600;
-  letter-spacing: 0.05em;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
   color: var(--app-text-muted);
 }
 .section-hint {
-  display: block;
   margin: 0 0 0.75rem;
   font-size: 0.85rem;
   line-height: 1.4;
+  color: var(--app-text-muted);
 }
 .grid-2 {
   display: grid;
@@ -604,9 +435,9 @@ function isSelf(user: AuthUser): boolean {
   gap: 1rem;
   margin: 0.35rem 0 0.15rem;
   padding: 0.75rem 0.85rem;
-  border-radius: 10px;
+  border-radius: 12px;
   border: 1px solid var(--app-border);
-  background: var(--app-surface);
+  background: var(--app-surface-raised);
 }
 .disabled-label {
   font-size: 0.9rem;
@@ -618,6 +449,22 @@ function isSelf(user: AuthUser): boolean {
   margin-top: 0.15rem;
   font-size: 0.8rem;
 }
+.banner {
+  padding: 0.75rem 0.9rem;
+  border-radius: 11px;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  border: 1px solid var(--app-border);
+}
+.banner-info {
+  background: color-mix(in srgb, #2f6fed 10%, transparent);
+  border-color: color-mix(in srgb, #2f6fed 28%, transparent);
+  color: var(--app-text-soft);
+}
+:global(html[data-theme="dark"]) .banner-info {
+  background: color-mix(in srgb, #6aa1ff 12%, transparent);
+  border-color: color-mix(in srgb, #6aa1ff 28%, transparent);
+}
 .modal-footer {
   display: flex;
   justify-content: flex-end;
@@ -625,5 +472,18 @@ function isSelf(user: AuthUser): boolean {
   margin-top: 1.25rem;
   padding-top: 1rem;
   border-top: 1px solid var(--app-border);
+}
+</style>
+
+<style>
+.user-modal.n-card {
+  border-radius: 16px !important;
+  overflow: hidden;
+}
+.user-modal .n-card-header {
+  padding: 1.1rem 1.25rem 0.75rem !important;
+}
+.user-modal .n-card__content {
+  padding: 0.35rem 1.25rem 1.15rem !important;
 }
 </style>

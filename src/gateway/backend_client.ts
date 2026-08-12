@@ -1,6 +1,7 @@
 import { Client } from "@modelcontextprotocol/client";
 import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 import type { ServerRecord } from "../db/types.ts";
+import { normalizeLaunchCommand } from "../package_spec.ts";
 import type { PreparedSandbox } from "../sandbox.ts";
 import { appendLog } from "../sandbox.ts";
 import {
@@ -71,11 +72,12 @@ export async function connectBackend(
   sandbox: PreparedSandbox,
   sandboxRuntime: SandboxRuntime,
 ): Promise<BackendHandle> {
+  const launch = normalizeLaunchCommand(server.command, server.args);
   const wrapped = await wrapSandboxCommand(
     sandboxRuntime,
     sandbox,
-    server.command,
-    server.args,
+    launch.command,
+    launch.args,
   );
 
   const timeoutMs = backendConnectTimeoutMs();

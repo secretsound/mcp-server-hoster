@@ -80,7 +80,28 @@ const UVX_VALUE_OPTS = new Set([
   "--config-file",
 ]);
 
-/** Split `uvx [options] <package> [tool args…]`. */
+/** Boolean uvx flags (no following value). */
+const UVX_BOOL_OPTS = new Set([
+  "--isolated",
+  "--no-env-file",
+  "--lfs",
+  "--no-progress",
+  "--quiet",
+  "-q",
+  "--verbose",
+  "-v",
+  "--no-cache",
+  "--refresh",
+  "--offline",
+  "--no-python-downloads",
+]);
+
+function uvxOptionName(token: string): string {
+  const eq = token.indexOf("=");
+  return eq === -1 ? token : token.slice(0, eq);
+}
+
+/** Split `uvx [options] <package> [tool args…]`. Unknown dash flags are tool args. */
 export function splitUvxInvocation(args: string[]): {
   options: string[];
   packageSpec: string | null;
@@ -91,11 +112,15 @@ export function splitUvxInvocation(args: string[]): {
   while (i < args.length) {
     const a = String(args[i] ?? "");
     if (!a.startsWith("-")) break;
+    const name = uvxOptionName(a);
+    const isValueOpt = UVX_VALUE_OPTS.has(name);
+    const isBoolOpt = UVX_BOOL_OPTS.has(name);
+    if (!isValueOpt && !isBoolOpt) break;
     options.push(a);
     i++;
-    if (a.includes("=")) continue;
     if (
-      UVX_VALUE_OPTS.has(a) &&
+      isValueOpt &&
+      !a.includes("=") &&
       i < args.length &&
       !String(args[i]).startsWith("-")
     ) {
@@ -115,8 +140,11 @@ export function splitUvxInvocation(args: string[]): {
 
 /** Build uvx args from a package pin plus form extras (options and/or tool flags). */
 export function buildUvxArgs(packageSpec: string, extra: string[]): string[] {
-  const { options, toolArgs } = splitUvxInvocation(extra);
-  return [...options, packageSpec, ...toolArgs];
+  const { options, packageSpec: nestedPkg, toolArgs } = splitUvxInvocation(
+    extra,
+  );
+  const trailing = nestedPkg ? [nestedPkg, ...toolArgs] : toolArgs;
+  return [...options, packageSpec, ...trailing];
 }
 
 export function shellQuoteArg(a: string): string {

@@ -1,7 +1,8 @@
 export default {
   kicker: "Instalar desde la Biblioteca",
   serverFallback: "Servidor",
-  selfHosted: "autoalojado",
+  localApp: "local",
+  onlineRequired: "en línea",
   official: "oficial",
   stepReview: "Revisar",
   stepConfigure: "Configurar",
@@ -11,6 +12,7 @@ export default {
   launchCommand: "Comando de lanzamiento",
   serverId: "ID del servidor",
   displayName: "Nombre visible",
+  identity: "Identidad",
   nextRequiredEnv:
     "A continuación configurarás {keys} para que este servidor pueda iniciarse correctamente.",
   optionalEnv: "Opcional: {keys}.",
@@ -28,6 +30,8 @@ export default {
   willRun: "Se ejecutará",
   idRequired: "El ID del servidor es obligatorio.",
   idInvalid: "El ID solo puede contener letras, números, _ y -.",
+  anotherInstanceHint:
+    "Ya tienes {count} instancia de esta app. Se sugirió un ID único ({id}) — cámbialo si quieres. | Ya tienes {count} instancias de esta app. Se sugirió un ID único ({id}) — cámbialo si quieres.",
   installed: "Instalado {id}",
   copyFailed: "No se pudo copiar",
   installedNotStarted: "{id} está instalado (aún no iniciado).",

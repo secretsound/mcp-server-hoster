@@ -2,6 +2,7 @@ import type {
   CreateServerInput,
   EnvPair,
   Launcher,
+  LibraryItem,
   ServerFormValues,
   ServerWithRuntime,
   UpdateServerInput,
@@ -199,19 +200,29 @@ export function optionalEnvKeysFromPairs(
     .map((e) => e.key.trim());
 }
 
-export function isSelfHostedLibraryItem(tags: string[] | undefined): boolean {
-  return (tags || []).some((t) => t.toLowerCase() === "self-hosted");
-}
-
 export function isOfficialLibraryItem(tags: string[] | undefined): boolean {
   return (tags || []).some((t) => t.toLowerCase() === "official");
+}
+
+/** Third-party / cloud backend that needs outbound internet by default. */
+export function isOnlineLibraryItem(tags: string[] | undefined): boolean {
+  return (tags || []).some((t) => {
+    const lower = t.toLowerCase();
+    return lower === "online" || lower === "cloud";
+  });
 }
 
 /** Tags for display excluding ones already shown as dedicated badges. */
 export function displayLibraryTags(tags: string[] | undefined): string[] {
   return (tags || []).filter((t) => {
     const lower = t.toLowerCase();
-    return lower !== "self-hosted" && lower !== "official";
+    return (
+      lower !== "self-hosted" &&
+      lower !== "official" &&
+      lower !== "online" &&
+      lower !== "cloud" &&
+      lower !== "local"
+    );
   });
 }
 
@@ -327,4 +338,102 @@ export async function copyText(text: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+/** Default server id from a library template. */
+export function libraryBaseId(item: LibraryItem): string {
+  return (item.preset?.id || item.id || "").trim();
+}
+
+/**
+ * Servers that look like instances of a library app: same id, id-N suffix,
+ * or same package name as the preset.
+ */
+export function libraryInstances(
+  item: LibraryItem,
+  servers: ServerWithRuntime[],
+): ServerWithRuntime[] {
+  const base = libraryBaseId(item);
+  const pkg = item.preset?.package?.trim() || "";
+  const suffixRe = base
+    ? new RegExp(`^${escapeRegExp(base)}-\\d+$`)
+    : null;
+
+  return servers.filter((s) => {
+    if (base && (s.id === base || s.id === item.id)) return true;
+    if (suffixRe && suffixRe.test(s.id)) return true;
+    if (pkg && s.packageName === pkg) return true;
+    return false;
+  });
+}
+
+/** Next free id: base, then base-2, base-3, … */
+export function nextLibraryServerId(
+  baseId: string,
+  existingIds: Iterable<string>,
+): string {
+  const base = baseId.trim() || "server";
+  const taken = new Set(existingIds);
+  if (!taken.has(base)) return base;
+  let n = 2;
+  while (taken.has(`${base}-${n}`)) n += 1;
+  return `${base}-${n}`;
+}
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** Best-effort docs / package / repo URL for a library item. */
+export function librarySourceUrl(item: LibraryItem): string | null {
+  const git = item.preset?.git?.trim() || "";
+  if (/^https?:\/\//i.test(git)) return git;
+  if (/^git\+https?:\/\//i.test(git)) return git.replace(/^git\+/i, "");
+  if (/^github\.com\//i.test(git)) return `https://${git}`;
+
+  const src = (item.source || "").trim();
+  if (/^https?:\/\//i.test(src)) return src;
+  if (/^github\.com\//i.test(src)) return `https://${src}`;
+
+  const pkg = (item.preset?.package || src || "").trim();
+  if (!pkg) return null;
+
+  // Git / HTTP package specs (uvx --from, etc.)
+  if (/^https?:\/\//i.test(pkg)) return pkg;
+  if (/^git\+https?:\/\//i.test(pkg)) return pkg.replace(/^git\+/i, "");
+  if (/^github\.com\//i.test(pkg)) return `https://${pkg}`;
+
+  const launcher = item.preset?.launcher;
+  if (launcher === "uvx" || item.tags?.includes("uvx")) {
+    const name = pkg.replace(/\[.*\]$/, "").split("@")[0];
+    if (name && !name.includes("://")) {
+      return `https://pypi.org/project/${encodeURIComponent(name)}/`;
+    }
+  }
+  if (launcher === "npx" || item.tags?.includes("npx") || pkg.startsWith("@")) {
+    let npmName = pkg.replace(/^npm:/, "");
+    if (npmName.startsWith("@")) {
+      // @scope/name or @scope/name@version
+      const parts = npmName.split("@").filter(Boolean);
+      npmName = parts.length >= 1 ? `@${parts[0]}` : npmName;
+    } else {
+      npmName = npmName.split("@")[0];
+    }
+    if (npmName) {
+      return `https://www.npmjs.com/package/${npmName}`;
+    }
+  }
+  return null;
+}
+
+/** Human label for where librarySourceUrl points. */
+export function librarySourceKind(item: LibraryItem): "repo" | "npm" | "pypi" | "web" | null {
+  const url = librarySourceUrl(item);
+  if (!url) return null;
+  if (/github\.com|gitlab\.com|gitea\.|bitbucket\./i.test(url) || item.preset?.git) {
+    return "repo";
+  }
+  if (/npmjs\.com/i.test(url)) return "npm";
+  if (/pypi\.org/i.test(url)) return "pypi";
+  return "web";
 }

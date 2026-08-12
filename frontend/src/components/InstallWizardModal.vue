@@ -9,16 +9,15 @@ import {
   NCollapse,
   NCollapseItem,
   NFormItem,
+  NIcon,
   NInput,
   NModal,
   NSpace,
   NSpin,
-  NSteps,
-  NStep,
-  NTag,
   NText,
   useMessage,
 } from "naive-ui";
+import { CheckmarkOutline, CopyOutline } from "@vicons/ionicons5";
 import { useLibraryStore } from "../stores/library";
 import { useServersStore } from "../stores/servers";
 import { useUiStore } from "../stores/ui";
@@ -26,9 +25,11 @@ import type { LibraryItem, ServerFormValues, ServerWithRuntime, ToolInfo } from 
 import {
   buildCreatePayload,
   copyText,
-  displayLibraryTags,
   isOfficialLibraryItem,
-  isSelfHostedLibraryItem,
+  isOnlineLibraryItem,
+  libraryBaseId,
+  libraryInstances,
+  nextLibraryServerId,
   optionalEnvKeysFromPairs,
   requiredEnvKeysFromPairs,
   serverGatewayUrl,
@@ -75,6 +76,15 @@ const form = reactive<ServerFormValues>({
 
 const item = computed(() => ui.installItem);
 
+const monogram = computed(() => {
+  const name = item.value?.name?.trim() || "?";
+  const parts = name.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return (parts[0]![0]! + parts[1]![0]!).toUpperCase();
+  }
+  return name.slice(0, 2).toUpperCase();
+});
+
 const categoryLabel = computed(() => {
   const id = item.value?.category;
   if (!id) return "";
@@ -106,16 +116,14 @@ const optionalEnvKeys = computed(() =>
   optionalEnvKeysFromPairs(form.env.length ? form.env : item.value?.preset.env),
 );
 
-const docsUrl = computed(() => {
-  const src = item.value?.source || "";
-  if (/^https?:\/\//i.test(src)) return src;
-  if (/^github\.com\//i.test(src)) return `https://${src}`;
-  return "";
-});
-
 const hasEnv = computed(() =>
   (form.env || []).some((e) => e.key.trim()),
 );
+
+const existingInstanceCount = computed(() => {
+  if (!item.value) return 0;
+  return libraryInstances(item.value, servers.servers).length;
+});
 
 const mcpUrl = computed(() => {
   if (!createdId.value) return "";
@@ -137,13 +145,26 @@ const toolCount = computed(() => {
   return createdServer.value?.toolCount ?? 0;
 });
 
+const steps = computed(() => [
+  { n: 1 as Step, title: t("installWizard.stepReview") },
+  { n: 2 as Step, title: t("installWizard.stepConfigure") },
+  { n: 3 as Step, title: t("installWizard.stepDone") },
+]);
+
 function applyItem(lib: LibraryItem) {
   const values = lib.preset;
+  const baseId = libraryBaseId(lib) || values.id || lib.id;
+  const baseName = (values.name || lib.name || baseId).trim();
+  const id = nextLibraryServerId(
+    baseId,
+    servers.servers.map((s) => s.id),
+  );
+  const isAnother = id !== baseId;
   Object.assign(form, {
     packageVersion: "",
     ...values,
-    id: values.id || lib.id,
-    name: values.name || lib.name,
+    id,
+    name: isAnother ? `${baseName} (${id})` : baseName,
     env: values.env?.length
       ? values.env.map((e) => ({ ...e }))
       : [{ key: "", value: "" }],
@@ -275,6 +296,11 @@ async function copyUrl(url: string) {
   else message.error(t("installWizard.copyFailed"));
 }
 
+async function copyCommand() {
+  if (!commandPreview.value) return;
+  if (await copyText(commandPreview.value)) message.success(t("common.copied"));
+}
+
 function openServer() {
   if (!createdId.value) return;
   close();
@@ -327,105 +353,119 @@ const doneAlertText = computed(() => {
   <NModal
     :show="ui.installOpen"
     preset="card"
-    style="width: min(640px, 96vw)"
+    class="install-wiz-modal"
+    style="width: min(600px, 96vw)"
+    :bordered="false"
     :mask-closable="!submitting && step !== 3"
     :closable="step !== 3 || !submitting"
     @update:show="(v: boolean) => !v && !submitting && close()"
   >
     <template #header>
-      <div class="wiz-head">
-        <div>
+      <div class="wiz-hero">
+        <div class="wiz-mark" aria-hidden="true">{{ monogram }}</div>
+        <div class="wiz-hero-text">
           <div class="wiz-kicker">{{ t("installWizard.kicker") }}</div>
-          <div class="wiz-title">{{ item?.name || t("installWizard.serverFallback") }}</div>
+          <h2 class="wiz-title">
+            {{ item?.name || t("installWizard.serverFallback") }}
+          </h2>
+          <div class="wiz-chips">
+            <span v-if="categoryLabel" class="chip chip-cat">{{ categoryLabel }}</span>
+            <span
+              v-if="item"
+              class="chip"
+              :class="isOnlineLibraryItem(item.tags) ? 'chip-warn' : 'chip-ok'"
+            >
+              {{
+                isOnlineLibraryItem(item.tags)
+                  ? t("installWizard.onlineRequired")
+                  : t("installWizard.localApp")
+              }}
+            </span>
+            <span
+              v-if="item && isOfficialLibraryItem(item.tags)"
+              class="chip chip-ok"
+            >
+              {{ t("installWizard.official") }}
+            </span>
+          </div>
         </div>
-        <NSpace :size="6">
-          <NTag
-            v-if="item && isSelfHostedLibraryItem(item.tags)"
-            size="small"
-            type="warning"
-            :bordered="false"
-          >
-            {{ t("installWizard.selfHosted") }}
-          </NTag>
-          <NTag
-            v-if="item && isOfficialLibraryItem(item.tags)"
-            size="small"
-            type="success"
-            :bordered="false"
-          >
-            {{ t("installWizard.official") }}
-          </NTag>
-          <NTag v-if="categoryLabel" size="small" :bordered="false">
-            {{ categoryLabel }}
-          </NTag>
-        </NSpace>
       </div>
     </template>
 
-    <NSteps :current="step" size="small" style="margin-bottom: 1.25rem">
-      <NStep :title="t('installWizard.stepReview')" />
-      <NStep :title="t('installWizard.stepConfigure')" />
-      <NStep :title="t('installWizard.stepDone')" />
-    </NSteps>
+    <nav class="wiz-steps" :aria-label="t('installWizard.kicker')">
+      <div
+        v-for="s in steps"
+        :key="s.n"
+        class="wiz-step"
+        :class="{
+          active: step === s.n,
+          done: step > s.n,
+        }"
+      >
+        <span class="wiz-step-index">
+          <NIcon
+            v-if="step > s.n"
+            :component="CheckmarkOutline"
+            :size="14"
+          />
+          <template v-else>{{ s.n }}</template>
+        </span>
+        <span class="wiz-step-title">{{ s.title }}</span>
+      </div>
+    </nav>
 
     <!-- Step 1: Review -->
-    <div v-if="step === 1 && item" class="panel">
+    <div v-if="step === 1 && item" class="panel panel-in">
       <p class="blurb">{{ item.blurb }}</p>
-      <p v-if="docsUrl" class="docs">
-        {{ t("installWizard.docsSource") }}
-        <a :href="docsUrl" target="_blank" rel="noopener">{{ item.source }}</a>
-      </p>
-      <div class="meta">
-        <div>
-          <NText depth="3">{{ t("installWizard.source") }}</NText>
-          <div class="mono">{{ item.source }}</div>
-        </div>
-        <div>
-          <NText depth="3">{{ t("installWizard.launchCommand") }}</NText>
-          <div class="mono">{{ commandPreview }}</div>
-        </div>
-      </div>
-      <NSpace :size="6" style="margin: 0.85rem 0 1rem">
-        <NTag
-          v-for="tag in displayLibraryTags(item.tags)"
-          :key="tag"
-          size="tiny"
-          :bordered="false"
-        >
-          {{ tag }}
-        </NTag>
-      </NSpace>
 
-      <div class="grid-2">
-        <NFormItem :label="t('installWizard.serverId')" required>
-          <NInput
-            v-model:value="form.id"
-            placeholder="mealie"
-            :allow-input="(v: string) => !v || /^[A-Za-z0-9_-]*$/.test(v)"
-          />
-        </NFormItem>
-        <NFormItem :label="t('installWizard.displayName')">
-          <NInput v-model:value="form.name" placeholder="Mealie" />
-        </NFormItem>
-      </div>
+      <section class="block">
+        <div class="block-head">
+          <h3 class="block-label">{{ t("installWizard.launchCommand") }}</h3>
+          <NButton size="tiny" quaternary @click="copyCommand">
+            <template #icon>
+              <NIcon :component="CopyOutline" />
+            </template>
+            {{ t("common.copy") }}
+          </NButton>
+        </div>
+        <pre class="cmd-block"><code>{{ commandPreview }}</code></pre>
+      </section>
 
-      <NAlert
-        v-if="requiredEnvKeys.length"
-        type="info"
-        :bordered="false"
-        style="margin-bottom: 0.75rem"
+      <section class="block">
+        <h3 class="block-label">{{ t("installWizard.identity") }}</h3>
+        <div class="grid-2">
+          <NFormItem :label="t('installWizard.serverId')" required>
+            <NInput
+              v-model:value="form.id"
+              placeholder="mealie"
+              :allow-input="(v: string) => !v || /^[A-Za-z0-9_-]*$/.test(v)"
+            />
+          </NFormItem>
+          <NFormItem :label="t('installWizard.displayName')">
+            <NInput v-model:value="form.name" placeholder="Mealie" />
+          </NFormItem>
+        </div>
+      </section>
+
+      <div
+        v-if="existingInstanceCount > 0"
+        class="hint hint-info"
       >
+        {{
+          t("installWizard.anotherInstanceHint", {
+            count: existingInstanceCount,
+            id: form.id,
+          }, existingInstanceCount)
+        }}
+      </div>
+
+      <div v-if="requiredEnvKeys.length" class="hint hint-info">
         {{ t("installWizard.nextRequiredEnv", { keys: requiredEnvKeys.join(", ") }) }}
         <template v-if="optionalEnvKeys.length">
           {{ t("installWizard.optionalEnv", { keys: optionalEnvKeys.join(", ") }) }}
         </template>
-      </NAlert>
-      <NAlert
-        v-else-if="hasEnv"
-        type="info"
-        :bordered="false"
-        style="margin-bottom: 0.75rem"
-      >
+      </div>
+      <div v-else-if="hasEnv" class="hint hint-info">
         {{
           t("installWizard.optionalEnvNext", {
             keys: optionalEnvKeys.length
@@ -435,35 +475,31 @@ const doneAlertText = computed(() => {
               : "",
           })
         }}
-      </NAlert>
+      </div>
     </div>
 
     <!-- Step 2: Configure -->
-    <div v-else-if="step === 2" class="panel">
-      <NAlert
-        v-if="requiredEnvKeys.length"
-        type="warning"
-        :bordered="false"
-        style="margin-bottom: 0.85rem"
-      >
+    <div v-else-if="step === 2" class="panel panel-in">
+      <div v-if="requiredEnvKeys.length" class="hint hint-warn">
         {{ t("installWizard.fillRequiredEnv") }}
-      </NAlert>
+      </div>
 
-      <NFormItem v-if="hasEnv" :label="t('installWizard.environment')">
+      <section class="block">
+        <h3 class="block-label">{{ t("installWizard.environment") }}</h3>
         <EnvKeyValueEditor
+          v-if="hasEnv"
           v-model="form.env"
           :highlight-keys="requiredEnvKeys"
         />
-      </NFormItem>
-      <NText v-else depth="3" style="display: block; margin-bottom: 0.75rem">
-        {{ t("installWizard.noEnvNeeded") }}
-      </NText>
+        <p v-else class="muted">{{ t("installWizard.noEnvNeeded") }}</p>
+      </section>
 
-      <NCheckbox v-model:checked="form.startNow" style="margin: 0.35rem 0 0.85rem">
-        {{ t("installWizard.startImmediately") }}
-      </NCheckbox>
+      <label class="start-row">
+        <NCheckbox v-model:checked="form.startNow" />
+        <span>{{ t("installWizard.startImmediately") }}</span>
+      </label>
 
-      <NCollapse>
+      <NCollapse class="advanced">
         <NCollapseItem :title="t('installWizard.advancedGit')" name="git">
           <div class="grid-2">
             <NFormItem :label="t('installWizard.gitUrl')">
@@ -479,15 +515,15 @@ const doneAlertText = computed(() => {
         </NCollapseItem>
       </NCollapse>
 
-      <div class="cmd-preview">
-        <NText depth="3">{{ t("installWizard.willRun") }}</NText>
-        <code>{{ commandPreview }}</code>
-      </div>
+      <section class="block">
+        <h3 class="block-label">{{ t("installWizard.willRun") }}</h3>
+        <pre class="cmd-block"><code>{{ commandPreview }}</code></pre>
+      </section>
     </div>
 
     <!-- Step 3: Done -->
-    <div v-else-if="step === 3" class="panel done">
-      <NAlert :type="doneAlertType" :bordered="false" style="margin-bottom: 1rem">
+    <div v-else-if="step === 3" class="panel panel-in done">
+      <NAlert :type="doneAlertType" :bordered="false" class="done-alert-wrap">
         <div class="done-alert">
           <span>{{ doneAlertText }}</span>
           <StatusTag
@@ -504,7 +540,7 @@ const doneAlertText = computed(() => {
       <div v-if="form.startNow" class="status-panel">
         <NSpin :show="statusPolling" size="small">
           <div class="status-row">
-            <NText depth="3">{{ t("installWizard.runtime") }}</NText>
+            <span class="block-label">{{ t("installWizard.runtime") }}</span>
             <div class="status-vals">
               <StatusTag :status="runtimeStatus" :error="lastError" />
               <NText v-if="toolCount" depth="3">
@@ -526,119 +562,316 @@ const doneAlertText = computed(() => {
         </NButton>
       </div>
 
-      <div class="url-block">
-        <NText depth="3">{{ t("installWizard.dedicatedEndpoint") }}</NText>
-        <div class="url-row">
-          <code>{{ mcpUrl }}</code>
-          <NButton size="tiny" @click="copyUrl(mcpUrl)">{{ t("common.copy") }}</NButton>
+      <div class="url-card">
+        <div class="url-card-top">
+          <span class="block-label">{{ t("installWizard.dedicatedEndpoint") }}</span>
+          <NButton size="tiny" quaternary @click="copyUrl(mcpUrl)">
+            <template #icon>
+              <NIcon :component="CopyOutline" />
+            </template>
+            {{ t("common.copy") }}
+          </NButton>
         </div>
+        <code>{{ mcpUrl }}</code>
       </div>
-      <div class="url-block">
-        <NText depth="3">{{ t("installWizard.unifiedGateway", { ns: `${createdId}__*` }) }}</NText>
-        <div class="url-row">
-          <code>{{ unifiedUrl }}</code>
-          <NButton size="tiny" @click="copyUrl(unifiedUrl)">{{ t("common.copy") }}</NButton>
+      <div class="url-card">
+        <div class="url-card-top">
+          <span class="block-label">
+            {{ t("installWizard.unifiedGateway", { ns: `${createdId}__*` }) }}
+          </span>
+          <NButton size="tiny" quaternary @click="copyUrl(unifiedUrl)">
+            <template #icon>
+              <NIcon :component="CopyOutline" />
+            </template>
+            {{ t("common.copy") }}
+          </NButton>
         </div>
+        <code>{{ unifiedUrl }}</code>
       </div>
     </div>
 
-    <NText v-if="formError" type="error" style="display: block; margin-top: 0.65rem">
-      {{ formError }}
-    </NText>
+    <p v-if="formError" class="form-error">{{ formError }}</p>
 
     <template #footer>
-      <NSpace v-if="step === 1" justify="end">
-        <NButton :disabled="submitting" @click="close">{{ t("common.cancel") }}</NButton>
-        <NButton type="primary" @click="next">{{ t("installWizard.continue") }}</NButton>
-      </NSpace>
-      <NSpace v-else-if="step === 2" justify="space-between">
-        <NButton :disabled="submitting" @click="back">{{ t("common.back") }}</NButton>
-        <NSpace>
+      <div class="wiz-footer">
+        <NSpace v-if="step === 1" justify="end" style="width: 100%">
           <NButton :disabled="submitting" @click="close">{{ t("common.cancel") }}</NButton>
-          <NButton type="primary" :loading="submitting" @click="install">
-            {{ form.startNow ? t("installWizard.installAndStart") : t("common.install") }}
-          </NButton>
+          <NButton type="primary" @click="next">{{ t("installWizard.continue") }}</NButton>
         </NSpace>
-      </NSpace>
-      <NSpace v-else justify="end">
-        <NButton @click="installAnother">{{ t("installWizard.library") }}</NButton>
-        <NButton @click="goConnect">{{ t("installWizard.connectClient") }}</NButton>
-        <NButton type="primary" @click="openServer">{{ t("installWizard.openServer") }}</NButton>
-      </NSpace>
+        <template v-else-if="step === 2">
+          <NButton :disabled="submitting" @click="back">{{ t("common.back") }}</NButton>
+          <NSpace>
+            <NButton :disabled="submitting" @click="close">{{ t("common.cancel") }}</NButton>
+            <NButton type="primary" :loading="submitting" @click="install">
+              {{ form.startNow ? t("installWizard.installAndStart") : t("common.install") }}
+            </NButton>
+          </NSpace>
+        </template>
+        <NSpace v-else justify="end" style="width: 100%">
+          <NButton @click="installAnother">{{ t("installWizard.library") }}</NButton>
+          <NButton @click="goConnect">{{ t("installWizard.connectClient") }}</NButton>
+          <NButton type="primary" @click="openServer">{{ t("installWizard.openServer") }}</NButton>
+        </NSpace>
+      </div>
     </template>
   </NModal>
 </template>
 
 <style scoped>
-.wiz-head {
+.wiz-hero {
   display: flex;
+  gap: 0.9rem;
   align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.75rem;
+  padding-right: 0.4rem;
+}
+.wiz-mark {
+  flex: 0 0 auto;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: 0.02em;
+  color: var(--app-brand-fg, #fff);
+  background: linear-gradient(145deg, var(--app-accent-hover) 0%, var(--app-accent) 55%, var(--app-accent-pressed) 100%);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--app-accent) 28%, transparent);
+}
+:global(html[data-theme="dark"]) .wiz-mark {
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--app-accent) 22%, transparent);
+}
+.wiz-hero-text {
+  min-width: 0;
+  flex: 1;
 }
 .wiz-kicker {
-  font-size: 0.78rem;
-  font-weight: 500;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: var(--app-text-muted);
-  margin-bottom: 0.15rem;
+  margin-bottom: 0.2rem;
 }
 .wiz-title {
-  font-size: 1.15rem;
+  margin: 0;
+  font-size: 1.3rem;
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
   color: var(--app-text);
 }
-.blurb {
-  margin: 0 0 0.85rem;
-  color: var(--app-text-soft);
-  line-height: 1.45;
+.wiz-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
 }
-.docs {
-  margin: -0.35rem 0 0.85rem;
-  font-size: 0.85rem;
+.chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: var(--app-surface-raised);
+  color: var(--app-text-soft);
+  border: 1px solid var(--app-border);
+}
+.chip-cat {
+  background: color-mix(in srgb, #2f6fed 12%, transparent);
+  border-color: color-mix(in srgb, #2f6fed 28%, transparent);
+  color: #2f6fed;
+}
+:global(html[data-theme="dark"]) .chip-cat {
+  color: #6aa1ff;
+  background: color-mix(in srgb, #6aa1ff 14%, transparent);
+  border-color: color-mix(in srgb, #6aa1ff 30%, transparent);
+}
+.chip-warn {
+  background: color-mix(in srgb, #b8860b 14%, transparent);
+  border-color: color-mix(in srgb, #b8860b 32%, transparent);
+  color: #9a7209;
+}
+:global(html[data-theme="dark"]) .chip-warn {
+  color: #e0b44a;
+  background: color-mix(in srgb, #e0b44a 14%, transparent);
+  border-color: color-mix(in srgb, #e0b44a 30%, transparent);
+}
+.chip-ok {
+  background: var(--app-chip-active-bg);
+  border-color: var(--app-chip-active-border);
+  color: var(--app-chip-active-text);
+}
+
+.wiz-steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.45rem;
+  margin: 0.15rem 0 1.15rem;
+  padding: 0.35rem;
+  border-radius: 12px;
+  background: var(--app-surface-raised);
+  border: 1px solid var(--app-border);
+}
+.wiz-step {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.35rem;
+  border-radius: 9px;
+  color: var(--app-text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  transition: background 160ms ease, color 160ms ease;
+}
+.wiz-step.active {
+  background: var(--app-surface);
+  color: var(--app-chip-active-text);
+  box-shadow: 0 1px 3px color-mix(in srgb, #000 8%, transparent);
+}
+.wiz-step.done {
+  color: var(--app-chip-active-text);
+}
+.wiz-step-index {
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-size: 0.72rem;
+  border: 1px solid currentColor;
+  opacity: 0.85;
+}
+.wiz-step.active .wiz-step-index,
+.wiz-step.done .wiz-step-index {
+  background: var(--app-chip-active-bg);
+  border-color: var(--app-chip-active-border);
+  opacity: 1;
+}
+.wiz-step-title {
+  white-space: nowrap;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.95rem;
+}
+.panel-in {
+  animation: panel-in 200ms ease-out;
+}
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.blurb {
+  margin: 0;
+  color: var(--app-text-soft);
+  line-height: 1.55;
+  font-size: 0.96rem;
+}
+
+.block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+.block-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.block-label {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
   color: var(--app-text-muted);
 }
-.docs a {
-  color: var(--n-primary-color, #0b6e4f);
-  text-decoration: underline;
+
+.cmd-block {
+  margin: 0;
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  border: 1px solid var(--app-border);
+  background: #14212b;
+  color: #e8f5ef;
+  overflow-x: auto;
 }
-.meta {
-  display: grid;
-  gap: 0.65rem;
+:global(html[data-theme="dark"]) .cmd-block {
+  background: #121920;
+  color: #d7e6df;
 }
-.mono,
-.cmd-preview code,
-.url-row code {
+.cmd-block code {
   font-family: "IBM Plex Mono", ui-monospace, monospace;
   font-size: 0.8rem;
-  word-break: break-all;
-  color: var(--app-text);
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
+
 .grid-2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0 0.75rem;
 }
-.cmd-preview {
-  margin-top: 0.85rem;
-  padding: 0.75rem 0.85rem;
-  border-radius: 10px;
+
+.hint {
+  padding: 0.75rem 0.9rem;
+  border-radius: 11px;
+  font-size: 0.86rem;
+  line-height: 1.45;
   border: 1px solid var(--app-border);
-  display: grid;
-  gap: 0.35rem;
 }
-.url-block {
-  margin-bottom: 0.85rem;
+.hint-info {
+  background: color-mix(in srgb, #2f6fed 10%, transparent);
+  border-color: color-mix(in srgb, #2f6fed 28%, transparent);
+  color: var(--app-text-soft);
 }
-.url-row {
-  display: flex;
+:global(html[data-theme="dark"]) .hint-info {
+  background: color-mix(in srgb, #6aa1ff 12%, transparent);
+  border-color: color-mix(in srgb, #6aa1ff 28%, transparent);
+}
+.hint-warn {
+  background: color-mix(in srgb, #b8860b 12%, transparent);
+  border-color: color-mix(in srgb, #b8860b 30%, transparent);
+  color: var(--app-text-soft);
+}
+:global(html[data-theme="dark"]) .hint-warn {
+  background: color-mix(in srgb, #e0b44a 12%, transparent);
+  border-color: color-mix(in srgb, #e0b44a 28%, transparent);
+}
+
+.start-row {
+  display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  margin-top: 0.25rem;
+  gap: 0.55rem;
+  cursor: pointer;
+  font-size: 0.92rem;
+  color: var(--app-text);
 }
-.url-row code {
-  flex: 1;
-  min-width: 0;
+.muted {
+  margin: 0;
+  color: var(--app-text-muted);
+  font-size: 0.9rem;
+}
+.advanced {
+  margin-top: -0.15rem;
+}
+
+.done-alert-wrap {
+  border-radius: 12px;
 }
 .done-alert {
   display: flex;
@@ -654,14 +887,14 @@ const doneAlertText = computed(() => {
   word-break: break-word;
 }
 .status-panel {
-  margin-bottom: 1rem;
-  padding: 0.75rem 0.85rem;
-  border-radius: 10px;
+  padding: 0.85rem 0.95rem;
+  border-radius: 12px;
   border: 1px solid var(--app-border);
+  background: var(--app-surface-raised);
 }
 .status-row {
   display: grid;
-  gap: 0.35rem;
+  gap: 0.4rem;
 }
 .status-vals {
   display: flex;
@@ -669,9 +902,78 @@ const doneAlertText = computed(() => {
   align-items: center;
   gap: 0.5rem 0.75rem;
 }
+
+.url-card {
+  display: grid;
+  gap: 0.4rem;
+  padding: 0.85rem 0.95rem;
+  border-radius: 12px;
+  border: 1px solid var(--app-border);
+  background: var(--app-surface);
+}
+.url-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.url-card code {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.8rem;
+  word-break: break-all;
+  color: var(--app-text);
+}
+
+.form-error {
+  margin: 0.75rem 0 0;
+  color: #c23b3b;
+  font-size: 0.88rem;
+}
+:global(html[data-theme="dark"]) .form-error {
+  color: #f07178;
+}
+
+.wiz-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
 @media (max-width: 640px) {
   .grid-2 {
     grid-template-columns: 1fr;
   }
+  .wiz-step-title {
+    display: none;
+  }
+  .wiz-mark {
+    width: 2.6rem;
+    height: 2.6rem;
+    font-size: 0.85rem;
+  }
+  .wiz-title {
+    font-size: 1.15rem;
+  }
+}
+</style>
+
+<style>
+.install-wiz-modal.n-card {
+  border-radius: 16px !important;
+  overflow: hidden;
+}
+.install-wiz-modal .n-card-header {
+  padding: 1.15rem 1.25rem 0.75rem !important;
+}
+.install-wiz-modal .n-card__content {
+  padding: 0.25rem 1.25rem 0.55rem !important;
+}
+.install-wiz-modal .n-card__footer {
+  padding: 0.85rem 1.25rem 1.1rem !important;
+  border-top: 1px solid var(--app-border);
+  background: color-mix(in srgb, var(--app-surface-raised) 65%, transparent);
 }
 </style>

@@ -1,6 +1,7 @@
 export default {
   title: "API keys",
   subtitle: "Keys authenticate MCP clients. Scope them down for each task.",
+  usageKicker: "How to use",
   createKey: "Create key",
   createTenantKey: "Create tenant key",
   createApiKey: "Create API key",

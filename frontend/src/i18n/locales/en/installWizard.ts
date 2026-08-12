@@ -1,7 +1,8 @@
 export default {
   kicker: "Install from Library",
   serverFallback: "Server",
-  selfHosted: "self-hosted",
+  localApp: "local",
+  onlineRequired: "online",
   official: "official",
   stepReview: "Review",
   stepConfigure: "Configure",
@@ -11,6 +12,7 @@ export default {
   launchCommand: "Launch command",
   serverId: "Server ID",
   displayName: "Display name",
+  identity: "Identity",
   nextRequiredEnv: "Next you’ll set {keys} so this server can start cleanly.",
   optionalEnv: "Optional: {keys}.",
   optionalEnvNext:
@@ -27,6 +29,8 @@ export default {
   willRun: "Will run",
   idRequired: "Server ID is required.",
   idInvalid: "ID may only contain letters, numbers, _ and -.",
+  anotherInstanceHint:
+    "You already have {count} instance of this app. A unique server ID ({id}) was suggested — change it if you like. | You already have {count} instances of this app. A unique server ID ({id}) was suggested — change it if you like.",
   installed: "Installed {id}",
   copyFailed: "Could not copy",
   installedNotStarted: "{id} is installed (not started yet).",

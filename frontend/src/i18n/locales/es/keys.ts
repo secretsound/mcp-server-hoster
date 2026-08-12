@@ -2,6 +2,7 @@ export default {
   title: "Claves API",
   subtitle:
     "Las claves autentican clientes MCP. Limita su alcance según cada tarea.",
+  usageKicker: "Cómo usarlas",
   createKey: "Crear clave",
   createTenantKey: "Crear clave de inquilino",
   createApiKey: "Crear clave API",

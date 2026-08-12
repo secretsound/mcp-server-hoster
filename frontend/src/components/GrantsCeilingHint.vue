@@ -54,27 +54,29 @@ const detail = computed(() => {
 <style scoped>
 .ceiling {
   margin-bottom: 0.75rem;
-  padding: 0.65rem 0.8rem;
-  border-radius: 10px;
+  padding: 0.75rem 0.9rem;
+  border-radius: 12px;
   border: 1px solid var(--app-border);
-  background: var(--app-surface-raised);
+  background: var(--app-surface);
 }
 .ceiling.compact {
   margin-bottom: 0;
-  padding: 0.5rem 0.65rem;
+  padding: 0.55rem 0.7rem;
   background: transparent;
   border-style: dashed;
 }
 .label {
   display: block;
   font-size: 0.72rem;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  margin-bottom: 0.2rem;
+  letter-spacing: 0.07em;
+  margin-bottom: 0.25rem;
+  color: var(--app-text-muted);
 }
 .value {
-  font-weight: 600;
-  font-size: 0.9rem;
+  font-weight: 650;
+  font-size: 0.92rem;
   color: var(--app-text);
 }
 .compact .value {
@@ -88,5 +90,6 @@ const detail = computed(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
 }
 </style>

@@ -4,6 +4,7 @@ import {
   extractPackageSpec,
   formatNpmSpec,
   formatUvxSpec,
+  normalizeUvxArgs,
   parseNpmSpec,
   parseUvxSpec,
   splitUvxInvocation,
@@ -94,6 +95,37 @@ assert(extractPackageSpec({
   command: "uvx",
   args: pinnedWith.args,
 }).name === "mealie-mcp-server", "extract uvx name with options");
+
+const fixedOrder = normalizeUvxArgs([
+  "mealie-mcp-server",
+  "--python",
+  "3.12",
+  "--with",
+  "mcp[cli]>=1.12.0,<2",
+]);
+assert(
+  fixedOrder.join(" ") ===
+    "--python 3.12 --with mcp[cli]>=1.12.0,<2 mealie-mcp-server",
+  "normalize moves options before package",
+);
+assert(
+  normalizeUvxArgs([
+    "postgres-mcp",
+    "--access-mode=unrestricted",
+  ]).join(" ") === "postgres-mcp --access-mode=unrestricted",
+  "normalize leaves tool flags after package",
+);
+
+const pgBuilt = buildUvxArgs("postgres-mcp", [
+  "--with",
+  "mcp[cli]>=1.12.0,<2",
+  "--access-mode=unrestricted",
+]);
+assert(
+  pgBuilt.join(" ") ===
+    "--with mcp[cli]>=1.12.0,<2 postgres-mcp --access-mode=unrestricted",
+  "build uvx keeps tool flags after package",
+);
 
 const git = applyPackageVersion(
   {

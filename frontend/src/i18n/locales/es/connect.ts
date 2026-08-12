@@ -1,6 +1,10 @@
 export default {
   title: "Conectar",
   subtitle: "Apunta clientes MCP a la puerta de enlace unificada de este host.",
+  setupKicker: "Puerta de enlace",
+  setupTitle: "Elige credenciales y URL",
+  clientsTitle: "Clientes",
+  clientsSub: "Guías para copiar y pegar en apps MCP populares",
   apiKeyForSnippets: "Clave API para los fragmentos",
   selectKey: "Selecciona una clave",
   authDisabledHint:

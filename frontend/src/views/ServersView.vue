@@ -5,29 +5,16 @@ import { useRouter } from "vue-router";
 import {
   NAlert,
   NButton,
-  NCard,
   NSkeleton,
   NSpace,
-  NTag,
   NText,
-  NThing,
   useMessage,
 } from "naive-ui";
 import OnboardingChecklist from "../components/OnboardingChecklist.vue";
-import StatusTag from "../components/StatusTag.vue";
+import ServerCard from "../components/ServerCard.vue";
 import { useAuthStore } from "../stores/auth";
 import { useServersStore } from "../stores/servers";
 import { useUiStore } from "../stores/ui";
-import type { ServerWithRuntime } from "../types";
-import { versionLabel } from "../utils/packageSpec";
-import {
-  copyText,
-  isActiveStatus,
-  isCrashedStatus,
-  serverGatewayUrl,
-  showCrashBanner,
-  statusOf,
-} from "../utils/serverForm";
 
 const DISMISS_KEY = "mcp_hoster_onboarding_dismissed";
 
@@ -94,36 +81,6 @@ async function act(id: string, action: "start" | "stop" | "restart") {
   }
 }
 
-async function copy(url: string) {
-  if (await copyText(url)) message.success(t("common.copied"));
-}
-
-function launcherOf(s: ServerWithRuntime): string {
-  if (s.command === "npx") return "npx";
-  if (s.command === "uvx") return "uvx";
-  return s.command || "custom";
-}
-
-function envCount(s: ServerWithRuntime): number {
-  return Object.keys(s.env || {}).length;
-}
-
-function disabledCount(s: ServerWithRuntime): number {
-  return s.disabledTools?.length ?? 0;
-}
-
-function formatWhen(iso: string | null | undefined): string | null {
-  if (!iso) return null;
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return null;
-  return d.toLocaleString(undefined, {
-    month: "numeric",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
-
 function openServer(id: string, tab?: string) {
   void router.push({
     path: `/servers/${encodeURIComponent(id)}`,
@@ -171,9 +128,9 @@ function openServer(id: string, tab?: string) {
     />
 
     <div v-if="firstLoad" class="cards">
-      <NCard v-for="i in 3" :key="i" size="small">
+      <div v-for="i in 3" :key="i" class="skel-card">
         <NSkeleton text :repeat="4" />
-      </NCard>
+      </div>
     </div>
 
     <div v-else-if="!servers.servers.length" class="empty-hint">
@@ -191,228 +148,34 @@ function openServer(id: string, tab?: string) {
     </div>
 
     <div v-else class="cards">
-      <NCard
+      <ServerCard
         v-for="s in servers.servers"
         :key="s.id"
-        size="small"
-        hoverable
-        class="server-card"
-      >
-        <NThing>
-          <template #header>
-            <RouterLink
-              class="title"
-              :to="`/servers/${encodeURIComponent(s.id)}`"
-            >
-              {{ s.name || s.id }}
-            </RouterLink>
-          </template>
-          <template #header-extra>
-            <StatusTag
-              :status="statusOf(s)"
-              :error="isCrashedStatus(statusOf(s)) ? s.runtime?.lastError : null"
-            />
-          </template>
-          <template #description>
-            <span class="sub">{{ s.id }}</span>
-          </template>
-
-          <div class="card-body">
-            <div class="mcp-row">
-              <code :title="serverGatewayUrl(servers.gatewayUrl, s.id)">
-                {{ serverGatewayUrl(servers.gatewayUrl, s.id) }}
-              </code>
-              <NButton
-                size="tiny"
-                quaternary
-                @click="copy(serverGatewayUrl(servers.gatewayUrl, s.id))"
-              >
-                {{ t("common.copy") }}
-              </NButton>
-            </div>
-
-            <NSpace :size="6" class="meta">
-              <NTag size="small" :bordered="false">
-                {{ launcherOf(s) }}
-              </NTag>
-              <NTag size="small" :bordered="false">
-                {{ t("servers.toolsCount", { count: s.toolCount ?? 0 }) }}
-              </NTag>
-              <NTag
-                v-if="disabledCount(s)"
-                size="small"
-                :bordered="false"
-                type="warning"
-              >
-                {{ t("servers.offCount", { count: disabledCount(s) }) }}
-              </NTag>
-              <NTag v-if="versionLabel(s)" size="small" :bordered="false">
-                {{ versionLabel(s) }}
-              </NTag>
-              <NTag v-if="envCount(s)" size="small" :bordered="false">
-                {{ t("servers.envCount", { count: envCount(s) }) }}
-              </NTag>
-              <NTag v-if="s.enabled === false" size="small" type="warning" :bordered="false">
-                {{ t("servers.disabled") }}
-              </NTag>
-            </NSpace>
-
-            <div class="details">
-              <NText v-if="formatWhen(s.runtime?.lastStartedAt)" depth="3">
-                {{
-                  t("servers.startedAt", {
-                    when: formatWhen(s.runtime?.lastStartedAt),
-                  })
-                }}
-              </NText>
-              <NText v-else depth="3">{{ t("servers.neverStarted") }}</NText>
-              <NText
-                v-if="s.runtime?.pid"
-                depth="3"
-                class="detail-sep"
-              >
-                {{ t("servers.pid", { pid: s.runtime.pid }) }}
-              </NText>
-              <NText
-                v-if="(s.runtime?.restartCount ?? 0) > 0"
-                depth="3"
-                class="detail-sep"
-              >
-                {{ t("servers.restarts", { count: s.runtime?.restartCount }) }}
-              </NText>
-            </div>
-
-            <div
-              v-if="showCrashBanner(statusOf(s), s.runtime?.lastError)"
-              class="crash-line"
-            >
-              <span :title="s.runtime?.lastError ?? undefined">
-                {{ s.runtime?.lastError }}
-              </span>
-              <NButton
-                size="tiny"
-                type="error"
-                secondary
-                @click="openServer(s.id, 'logs')"
-              >
-                {{ t("servers.logs") }}
-              </NButton>
-            </div>
-          </div>
-
-          <template #action>
-            <NSpace class="card-actions">
-              <NButton size="small" @click="openServer(s.id)">
-                {{ t("servers.configure") }}
-              </NButton>
-              <NButton
-                v-if="isActiveStatus(statusOf(s))"
-                size="small"
-                :loading="servers.busyIds[s.id]"
-                @click="act(s.id, 'stop')"
-              >
-                {{ t("common.stop") }}
-              </NButton>
-              <NButton
-                v-else
-                size="small"
-                type="primary"
-                secondary
-                :loading="servers.busyIds[s.id]"
-                @click="act(s.id, 'start')"
-              >
-                {{ t("common.start") }}
-              </NButton>
-              <NButton
-                v-if="isActiveStatus(statusOf(s))"
-                size="small"
-                :loading="servers.busyIds[s.id]"
-                @click="act(s.id, 'restart')"
-              >
-                {{ t("common.restart") }}
-              </NButton>
-            </NSpace>
-          </template>
-        </NThing>
-      </NCard>
+        :server="s"
+        :gateway-url="servers.gatewayUrl"
+        :busy="!!servers.busyIds[s.id]"
+        @configure="openServer(s.id)"
+        @logs="openServer(s.id, 'logs')"
+        @start="act(s.id, 'start')"
+        @stop="act(s.id, 'stop')"
+        @restart="act(s.id, 'restart')"
+      />
     </div>
   </div>
 </template>
 
 <style scoped>
-.server-card {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 0.9rem;
+  align-items: stretch;
 }
-.server-card :deep(.n-card__content) {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-.server-card :deep(.n-thing) {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-.server-card :deep(.n-thing-main) {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-.server-card :deep(.n-thing-main__content) {
-  flex: 1;
-}
-.server-card :deep(.n-thing-main__action) {
-  margin-top: auto;
-  padding-top: 0.85rem;
-}
-.card-body {
-  display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
-  margin-top: 0.15rem;
-}
-.title {
-  font-weight: 600;
-  font-size: 1.05rem;
-  color: var(--app-text);
-}
-.title:hover {
-  color: var(--n-primary-color, #0b6e4f);
-}
-.sub {
-  color: var(--app-text-muted);
-  font-size: 0.82rem;
-}
-.mcp-row {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: 0.78rem;
-  min-width: 0;
-}
-.mcp-row code {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
-}
-.meta {
-  margin: 0;
-}
-.details {
-  font-size: 0.78rem;
-  line-height: 1.35;
-}
-.detail-sep {
-  margin-left: 0.15rem;
-}
-.card-actions {
-  width: 100%;
+.skel-card {
+  padding: 1.05rem 1.1rem;
+  border-radius: 14px;
+  border: 1px solid var(--app-border);
+  background: var(--app-surface);
 }
 .live {
   color: var(--app-text-muted);
@@ -422,29 +185,5 @@ function openServer(id: string, tab?: string) {
 }
 .empty-hint {
   padding: 0.25rem 0 1rem;
-}
-.crash-line {
-  margin: 0;
-  padding: 0.4rem 0.55rem;
-  border-radius: 8px;
-  background: color-mix(in srgb, #e34850 14%, transparent);
-  color: #ff8b92;
-  font-size: 0.8rem;
-  line-height: 1.35;
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.5rem;
-}
-.crash-line span {
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  min-width: 0;
-}
-html[data-theme="light"] .crash-line {
-  color: #a11c28;
-  background: color-mix(in srgb, #e34850 10%, transparent);
 }
 </style>

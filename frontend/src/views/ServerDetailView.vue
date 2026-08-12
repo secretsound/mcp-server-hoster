@@ -3,11 +3,10 @@ import { computed, onMounted, onUnmounted, reactive, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import {
-  NAlert,
   NButton,
-  NCard,
   NCheckbox,
   NEmpty,
+  NIcon,
   NInput,
   NModal,
   NSpace,
@@ -15,10 +14,10 @@ import {
   NSwitch,
   NTabPane,
   NTabs,
-  NTag,
   NText,
   useMessage,
 } from "naive-ui";
+import { ArrowBackOutline, CopyOutline } from "@vicons/ionicons5";
 import LogViewer from "../components/LogViewer.vue";
 import ServerFormFields from "../components/ServerFormFields.vue";
 import StatusTag from "../components/StatusTag.vue";
@@ -128,6 +127,29 @@ const mcpUrl = computed(() =>
 );
 
 const st = computed(() => (server.value ? statusOf(server.value) : "stopped"));
+
+const monogram = computed(() => {
+  const name = (server.value?.name || server.value?.id || "?").trim();
+  const parts = name.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return (parts[0]![0]! + parts[1]![0]!).toUpperCase();
+  }
+  return name.slice(0, 2).toUpperCase();
+});
+
+const launcher = computed(() => {
+  if (!server.value) return "";
+  if (server.value.command === "npx") return "npx";
+  if (server.value.command === "uvx") return "uvx";
+  return server.value.command || "custom";
+});
+
+function formatWhen(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString();
+}
 
 function applyServer(s: ServerWithRuntime) {
   server.value = s;
@@ -399,37 +421,56 @@ watch(
 </script>
 
 <template>
-  <div>
+  <div class="detail-page">
     <NSpin v-if="!server && !loadError" style="margin-top: 2rem" />
 
     <template v-else-if="loadError">
       <div class="page-head">
         <div>
-          <RouterLink class="back" to="/">{{ t("serverDetail.backToServers") }}</RouterLink>
-          <h1 style="margin-top: 0.35rem">{{ t("serverDetail.notFound") }}</h1>
+          <RouterLink class="back" to="/">
+            <NIcon :component="ArrowBackOutline" />
+            {{ t("serverDetail.backToServers") }}
+          </RouterLink>
+          <h1 class="page-title">{{ t("serverDetail.notFound") }}</h1>
           <p class="page-sub">{{ loadError }}</p>
         </div>
       </div>
     </template>
 
     <template v-else-if="server">
-      <div class="page-head">
-        <div>
-          <RouterLink class="back" to="/">{{ t("serverDetail.backToServers") }}</RouterLink>
-          <h1 style="margin-top: 0.35rem">{{ server.name || server.id }}</h1>
-          <p class="page-sub">
-            {{ server.id }} ·
-            <StatusTag
-              :status="st"
-              :error="isCrashedStatus(st) ? server.runtime?.lastError : null"
-            />
-            <template v-if="displayedVersion">
-              ·
-              <NTag size="small" :bordered="false">{{ displayedVersion }}</NTag>
-            </template>
-          </p>
+      <section
+        class="hero"
+        :class="{
+          running: st === 'running',
+          crashed: isCrashedStatus(st),
+        }"
+      >
+        <div class="hero-main">
+          <RouterLink class="back" to="/">
+            <NIcon :component="ArrowBackOutline" />
+            {{ t("serverDetail.backToServers") }}
+          </RouterLink>
+          <div class="hero-row">
+            <div class="hero-mark" aria-hidden="true">{{ monogram }}</div>
+            <div class="hero-text">
+              <h1 class="hero-title">{{ server.name || server.id }}</h1>
+              <div class="hero-chips">
+                <span class="chip mono">{{ server.id }}</span>
+                <StatusTag
+                  :status="st"
+                  :error="isCrashedStatus(st) ? server.runtime?.lastError : null"
+                />
+                <span v-if="launcher" class="chip">{{ launcher }}</span>
+                <span v-if="displayedVersion" class="chip">{{ displayedVersion }}</span>
+                <span v-if="server.enabled === false" class="chip chip-warn">
+                  {{ t("common.disabled") }}
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
-        <NSpace align="center">
+
+        <div class="hero-actions">
           <div
             v-if="auth.can('servers:write')"
             class="enabled-toggle"
@@ -452,7 +493,6 @@ watch(
           <NButton
             v-else-if="auth.can('servers:lifecycle')"
             type="primary"
-            secondary
             :loading="servers.busyIds[server.id]"
             @click="act('start')"
           >
@@ -473,109 +513,86 @@ watch(
           >
             {{ t("common.delete") }}
           </NButton>
-        </NSpace>
-      </div>
+        </div>
+      </section>
 
       <div class="metrics">
         <div class="metric">
-          <NText depth="3">{{ t("serverDetail.restarts") }}</NText>
+          <span class="metric-label">{{ t("serverDetail.restarts") }}</span>
           <strong>{{ server.runtime?.restartCount ?? 0 }}</strong>
         </div>
         <div class="metric">
-          <NText depth="3">{{ t("serverDetail.lastStarted") }}</NText>
-          <strong>
-            {{
-              server.runtime?.lastStartedAt
-                ? new Date(server.runtime.lastStartedAt).toLocaleString()
-                : "—"
-            }}
-          </strong>
+          <span class="metric-label">{{ t("serverDetail.lastStarted") }}</span>
+          <strong>{{ formatWhen(server.runtime?.lastStartedAt) }}</strong>
         </div>
         <div class="metric">
-          <NText depth="3">{{ t("serverDetail.lastCrash") }}</NText>
-          <strong>
-            {{
-              server.runtime?.lastCrashAt
-                ? new Date(server.runtime.lastCrashAt).toLocaleString()
-                : "—"
-            }}
-          </strong>
+          <span class="metric-label">{{ t("serverDetail.lastCrash") }}</span>
+          <strong>{{ formatWhen(server.runtime?.lastCrashAt) }}</strong>
         </div>
         <div class="metric">
-          <NText depth="3">{{ t("serverDetail.tools") }}</NText>
+          <span class="metric-label">{{ t("serverDetail.tools") }}</span>
           <strong>{{ server.toolCount ?? tools.length }}</strong>
         </div>
         <div class="metric">
-          <NText depth="3">{{ t("serverDetail.lastUpgraded") }}</NText>
-          <strong>
-            {{
-              server.lastUpgradedAt
-                ? new Date(server.lastUpgradedAt).toLocaleString()
-                : "—"
-            }}
-          </strong>
+          <span class="metric-label">{{ t("serverDetail.lastUpgraded") }}</span>
+          <strong>{{ formatWhen(server.lastUpgradedAt) }}</strong>
         </div>
       </div>
 
-      <NCard size="small" style="margin-bottom: 1rem" class="endpoint-card">
-        <div class="endpoint-row">
-          <div class="endpoint-main">
-            <NText depth="3">{{ t("serverDetail.mcpEndpoint") }}</NText>
-            <code class="endpoint-url">{{ mcpUrl }}</code>
-          </div>
-          <NButton size="small" @click="copyEndpoint">{{ t("common.copy") }}</NButton>
-        </div>
-        <NText depth="3" class="endpoint-hint">
-          {{ t("serverDetail.endpointHint", { ns: `${server.id}__*` }) }}
-        </NText>
-      </NCard>
-
-      <NAlert
-        v-if="showCrashBanner(st, server.runtime?.lastError)"
-        type="error"
-        style="margin-bottom: 1rem"
-        :bordered="false"
-        :title="t('serverDetail.crashedTitle')"
-      >
-        <div class="crash-alert">
-          <span>{{ server.runtime?.lastError }}</span>
-          <NButton size="tiny" type="error" secondary @click="activeTab = 'logs'">
-            {{ t("serverDetail.openLogs") }}
+      <div class="url-card">
+        <div class="url-card-top">
+          <span class="metric-label">{{ t("serverDetail.mcpEndpoint") }}</span>
+          <NButton size="tiny" quaternary @click="copyEndpoint">
+            <template #icon>
+              <NIcon :component="CopyOutline" />
+            </template>
+            {{ t("common.copy") }}
           </NButton>
         </div>
-      </NAlert>
-      <NAlert
-        v-else-if="st === 'restarting'"
-        type="warning"
-        style="margin-bottom: 1rem"
-        :bordered="false"
-      >
-        {{ t("serverDetail.restarting") }}
-      </NAlert>
+        <code class="url-value">{{ mcpUrl }}</code>
+        <p class="url-hint">
+          {{ t("serverDetail.endpointHint", { ns: `${server.id}__*` }) }}
+        </p>
+      </div>
 
-      <NTabs v-model:value="activeTab" type="line" animated>
+      <div
+        v-if="showCrashBanner(st, server.runtime?.lastError)"
+        class="banner banner-err"
+      >
+        <div>
+          <strong>{{ t("serverDetail.crashedTitle") }}</strong>
+          <p>{{ server.runtime?.lastError }}</p>
+        </div>
+        <NButton size="small" type="error" secondary @click="activeTab = 'logs'">
+          {{ t("serverDetail.openLogs") }}
+        </NButton>
+      </div>
+      <div v-else-if="st === 'restarting'" class="banner banner-warn">
+        {{ t("serverDetail.restarting") }}
+      </div>
+
+      <NTabs v-model:value="activeTab" type="line" animated class="detail-tabs">
         <NTabPane name="config" :tab="t('serverDetail.tabConfig')">
-          <NCard size="small">
+          <div class="panel">
             <ServerFormFields
               v-model="form"
               :show-id="true"
               id-disabled
               :show-enabled="false"
             />
-            <NText v-if="formError" type="error">{{ formError }}</NText>
-            <NSpace justify="end" style="margin-top: 0.5rem">
+            <p v-if="formError" class="form-error">{{ formError }}</p>
+            <div class="panel-foot">
               <NButton type="primary" :loading="saving" @click="onSave">
                 {{ t("serverDetail.saveChanges") }}
               </NButton>
-            </NSpace>
-          </NCard>
+            </div>
+          </div>
         </NTabPane>
 
         <NTabPane v-if="canUpgrade" name="upgrade" :tab="t('serverDetail.tabUpgrade')">
-          <NCard size="small" :title="t('serverDetail.upgradeTitle')">
-            <NText depth="3" style="display: block; margin-bottom: 0.75rem">
-              {{ t("serverDetail.upgradeHelp") }}
-            </NText>
+          <div class="panel">
+            <h3 class="panel-title">{{ t("serverDetail.upgradeTitle") }}</h3>
+            <p class="panel-help">{{ t("serverDetail.upgradeHelp") }}</p>
             <div class="upgrade-row">
               <NInput
                 v-model:value="upgradeVersion"
@@ -607,38 +624,38 @@ watch(
                 </NButton>
               </NSpace>
             </div>
-            <NText
-              v-if="server.lastUpgradedAt"
-              depth="3"
-              style="display: block; margin-top: 0.85rem; font-size: 0.85rem"
-            >
+            <p v-if="server.lastUpgradedAt" class="panel-meta">
               {{
                 t("serverDetail.lastUpgradedAt", {
-                  when: new Date(server.lastUpgradedAt).toLocaleString(),
+                  when: formatWhen(server.lastUpgradedAt),
                 })
               }}
-            </NText>
-          </NCard>
+            </p>
+          </div>
         </NTabPane>
 
         <NTabPane name="logs" :tab="t('serverDetail.tabLogs')">
-          <LogViewer
-            :logs="logs"
-            :loading="logsLoading"
-            @refresh="startLogStream"
-          />
+          <div class="panel panel-flush">
+            <LogViewer
+              :logs="logs"
+              :loading="logsLoading"
+              @refresh="startLogStream"
+            />
+          </div>
         </NTabPane>
 
         <NTabPane name="tools" :tab="toolsTabLabel">
-          <ToolList
-            :tools="tools"
-            :loading="toolsLoading"
-            :can-edit="auth.can('servers:write')"
-            :busy="toolsBusy"
-            @refresh="loadTools"
-            @set-enabled="onToolSetEnabled"
-            @set-all-enabled="onToolSetAllEnabled"
-          />
+          <div class="panel panel-flush">
+            <ToolList
+              :tools="tools"
+              :loading="toolsLoading"
+              :can-edit="auth.can('servers:write')"
+              :busy="toolsBusy"
+              @refresh="loadTools"
+              @set-enabled="onToolSetEnabled"
+              @set-all-enabled="onToolSetAllEnabled"
+            />
+          </div>
         </NTabPane>
 
         <NTabPane
@@ -646,36 +663,40 @@ watch(
           name="activity"
           :tab="t('serverDetail.tabActivity')"
         >
-          <NSpin :show="activityLoading">
-            <NEmpty
-              v-if="!activity.length"
-              :description="t('serverDetail.noAuditEvents')"
-            />
-            <div v-else class="activity">
-              <div v-for="ev in activity" :key="ev.id" class="activity-row">
-                <NTag size="small" :bordered="false">{{ ev.action }}</NTag>
-                <div class="activity-body">
-                  <div>{{ ev.summary }}</div>
-                  <NText depth="3">
-                    {{ ev.actorEmail || t("serverDetail.systemActor") }} ·
-                    {{ new Date(ev.createdAt).toLocaleString() }}
-                  </NText>
+          <div class="panel">
+            <NSpin :show="activityLoading">
+              <NEmpty
+                v-if="!activity.length"
+                :description="t('serverDetail.noAuditEvents')"
+              />
+              <div v-else class="activity">
+                <div v-for="ev in activity" :key="ev.id" class="activity-row">
+                  <span class="activity-action">{{ ev.action }}</span>
+                  <div class="activity-body">
+                    <div>{{ ev.summary }}</div>
+                    <span class="activity-meta">
+                      {{ ev.actorEmail || t("serverDetail.systemActor") }} ·
+                      {{ formatWhen(ev.createdAt) }}
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
-          </NSpin>
+            </NSpin>
+          </div>
         </NTabPane>
       </NTabs>
 
       <NModal
         v-model:show="deleteOpen"
         preset="card"
+        class="delete-modal"
         :title="t('serverDetail.deleteTitle')"
         style="width: min(440px, 96vw)"
+        :bordered="false"
       >
-        <NAlert type="warning" :bordered="false" style="margin-bottom: 0.85rem">
+        <div class="banner banner-warn" style="margin-bottom: 0.85rem">
           {{ t("serverDetail.deleteWarning", { id }) }}
-        </NAlert>
+        </div>
         <NInput
           v-model:value="deleteConfirm"
           :placeholder="id"
@@ -698,38 +719,274 @@ watch(
 </template>
 
 <style scoped>
+.detail-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
 .back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
   color: var(--app-text-muted);
-  font-size: 0.9rem;
+  font-size: 0.88rem;
+  text-decoration: none;
+  margin-bottom: 0.65rem;
 }
 .back:hover {
-  color: var(--n-primary-color, #0b6e4f);
+  color: var(--app-chip-active-text);
 }
-.crash-alert {
+.page-title {
+  margin: 0.35rem 0 0;
+}
+
+.hero {
   display: flex;
-  justify-content: space-between;
+  flex-wrap: wrap;
   align-items: flex-start;
-  gap: 0.75rem;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.1rem 1.15rem 1.15rem;
+  border-radius: 16px;
+  border: 1px solid var(--app-border);
+  background: var(--app-surface);
 }
+.hero.running {
+  border-color: color-mix(in srgb, var(--app-chip-active-text) 38%, var(--app-border));
+  background:
+    linear-gradient(
+      155deg,
+      color-mix(in srgb, var(--app-chip-active-text) 12%, transparent),
+      transparent 58%
+    ),
+    var(--app-surface);
+}
+.hero.crashed {
+  border-color: color-mix(in srgb, #c23b3b 40%, var(--app-border));
+}
+.hero-main {
+  min-width: 0;
+  flex: 1;
+}
+.hero-row {
+  display: flex;
+  gap: 0.9rem;
+  align-items: flex-start;
+}
+.hero-mark {
+  flex: 0 0 auto;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: 0.02em;
+  color: #fff;
+  background: linear-gradient(145deg, #0d8660 0%, #0b6e4f 55%, #095a41 100%);
+  box-shadow: 0 8px 20px color-mix(in srgb, #0b6e4f 28%, transparent);
+}
+:global(html[data-theme="dark"]) .hero-mark {
+  color: #0f161c;
+  background: linear-gradient(145deg, #56d9a8 0%, #3ecf9a 55%, #2bb884 100%);
+  box-shadow: 0 8px 22px color-mix(in srgb, #3ecf9a 22%, transparent);
+}
+.hero-title {
+  margin: 0;
+  font-size: 1.45rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+  color: var(--app-text);
+}
+.hero-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.55rem;
+  align-items: center;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: var(--app-surface-raised);
+  color: var(--app-text-soft);
+  border: 1px solid var(--app-border);
+}
+.chip.mono {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+}
+.chip-warn {
+  background: color-mix(in srgb, #b8860b 14%, transparent);
+  border-color: color-mix(in srgb, #b8860b 32%, transparent);
+  color: #9a7209;
+}
+:global(html[data-theme="dark"]) .chip-warn {
+  color: #e0b44a;
+  background: color-mix(in srgb, #e0b44a 14%, transparent);
+  border-color: color-mix(in srgb, #e0b44a 30%, transparent);
+}
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.enabled-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-right: 0.15rem;
+  font-size: 0.88rem;
+}
+
 .metrics {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 0.65rem;
-  margin-bottom: 1rem;
+  gap: 0.7rem;
 }
 .metric {
-  padding: 0.65rem 0.75rem;
-  border-radius: 10px;
+  padding: 0.85rem 0.95rem;
+  border-radius: 12px;
   border: 1px solid var(--app-border);
   background: var(--app-surface);
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: 0.3rem;
+}
+.metric-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--app-text-muted);
 }
 .metric strong {
   font-size: 0.92rem;
+  font-weight: 650;
   word-break: break-word;
+  color: var(--app-text);
 }
+
+.url-card {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.9rem 1rem;
+  border-radius: 12px;
+  border: 1px solid var(--app-border);
+  background: var(--app-surface);
+}
+.url-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.url-value {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.86rem;
+  word-break: break-all;
+  color: var(--app-text);
+}
+.url-hint {
+  margin: 0.15rem 0 0;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--app-text-muted);
+}
+
+.banner {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem 0.95rem;
+  border-radius: 12px;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  border: 1px solid var(--app-border);
+}
+.banner p {
+  margin: 0.25rem 0 0;
+}
+.banner-err {
+  background: color-mix(in srgb, #c23b3b 12%, transparent);
+  border-color: color-mix(in srgb, #c23b3b 32%, transparent);
+  color: #c23b3b;
+}
+:global(html[data-theme="dark"]) .banner-err {
+  color: #f07178;
+  background: color-mix(in srgb, #f07178 12%, transparent);
+  border-color: color-mix(in srgb, #f07178 30%, transparent);
+}
+.banner-warn {
+  background: color-mix(in srgb, #b8860b 12%, transparent);
+  border-color: color-mix(in srgb, #b8860b 30%, transparent);
+  color: var(--app-text-soft);
+}
+:global(html[data-theme="dark"]) .banner-warn {
+  background: color-mix(in srgb, #e0b44a 12%, transparent);
+  border-color: color-mix(in srgb, #e0b44a 28%, transparent);
+}
+
+.detail-tabs :deep(.n-tabs-nav) {
+  margin-bottom: 0.85rem;
+}
+.panel {
+  padding: 1.05rem 1.1rem;
+  border-radius: 14px;
+  border: 1px solid var(--app-border);
+  background: var(--app-surface);
+}
+.panel-flush {
+  padding: 0.65rem;
+}
+.panel-title {
+  margin: 0 0 0.35rem;
+  font-size: 1.02rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.panel-help {
+  margin: 0 0 0.9rem;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: var(--app-text-muted);
+}
+.panel-meta {
+  margin: 0.85rem 0 0;
+  font-size: 0.82rem;
+  color: var(--app-text-muted);
+}
+.panel-foot {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.75rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--app-border);
+}
+.form-error {
+  margin: 0.5rem 0 0;
+  color: #c23b3b;
+  font-size: 0.88rem;
+}
+:global(html[data-theme="dark"]) .form-error {
+  color: #f07178;
+}
+
+.upgrade-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
 .activity {
   display: flex;
   flex-direction: column;
@@ -738,48 +995,42 @@ watch(
 .activity-row {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: 0.65rem;
-  padding: 0.55rem 0.65rem;
-  border-radius: 8px;
+  gap: 0.75rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 11px;
   border: 1px solid var(--app-border);
-  background: var(--app-surface);
+  background: var(--app-surface-raised);
+}
+.activity-action {
+  display: inline-flex;
+  align-items: center;
+  height: fit-content;
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 650;
+  background: var(--app-chip-active-bg);
+  border: 1px solid var(--app-chip-active-border);
+  color: var(--app-chip-active-text);
 }
 .activity-body {
   font-size: 0.9rem;
+  color: var(--app-text);
 }
-.upgrade-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.75rem;
-}
-.endpoint-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-}
-.endpoint-main {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  min-width: 0;
-}
-.endpoint-url {
-  font-size: 0.92rem;
-  word-break: break-all;
-}
-.endpoint-hint {
+.activity-meta {
   display: block;
-  margin-top: 0.55rem;
-  font-size: 0.82rem;
-  line-height: 1.4;
+  margin-top: 0.2rem;
+  font-size: 0.78rem;
+  color: var(--app-text-muted);
 }
-.enabled-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  margin-right: 0.25rem;
-  font-size: 0.88rem;
+
+@media (max-width: 720px) {
+  .hero-title {
+    font-size: 1.25rem;
+  }
+  .hero-mark {
+    width: 2.6rem;
+    height: 2.6rem;
+  }
 }
 </style>

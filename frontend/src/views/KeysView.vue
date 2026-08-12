@@ -3,21 +3,19 @@ import { computed, onMounted, reactive, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import {
-  NAlert,
   NButton,
-  NCard,
   NEmpty,
+  NIcon,
   NInput,
   NModal,
   NSpace,
   NTabPane,
   NTabs,
-  NTag,
-  NText,
-  NThing,
   useDialog,
   useMessage,
 } from "naive-ui";
+import { CopyOutline, KeyOutline } from "@vicons/ionicons5";
+import ApiKeyCard from "../components/ApiKeyCard.vue";
 import GrantsCeilingHint from "../components/GrantsCeilingHint.vue";
 import ScopeEditor from "../components/ScopeEditor.vue";
 import { useAuthStore } from "../stores/auth";
@@ -185,41 +183,6 @@ async function copyPrefix(key: ApiKey) {
   if (await copyText(key.keyPrefix)) message.success(t("keys.prefixCopied"));
 }
 
-function scopesLabel(scopes: ScopeGrant[]): string {
-  if (!scopes.length) return t("keys.noScopes");
-  if (scopes.some((g) => g.serverId === "*" && g.tools.includes("*"))) {
-    return t("keys.fullAccess");
-  }
-  return scopes
-    .map((g) =>
-      `${g.serverId}:${g.tools.includes("*") ? "*" : g.tools.join("|")}`,
-    )
-    .join(", ");
-}
-
-function scopeTags(scopes: ScopeGrant[]): string[] {
-  if (!scopes.length) return [];
-  if (scopes.some((g) => g.serverId === "*" && g.tools.includes("*"))) {
-    return [t("keys.fullAccessTag")];
-  }
-  return scopes.map((g) =>
-    `${g.serverId}:${g.tools.includes("*") ? "*" : t("keys.toolsCount", { count: g.tools.length })}`,
-  );
-}
-
-function formatWhen(iso: string | null | undefined): string | null {
-  if (!iso) return null;
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return null;
-  return d.toLocaleString(undefined, {
-    month: "numeric",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
-
 function goConnect(key: ApiKey) {
   router.push({ path: "/connect", query: { key: key.id } });
 }
@@ -234,13 +197,11 @@ function onCreateClick() {
 </script>
 
 <template>
-  <div>
+  <div class="keys-page">
     <div class="page-head">
       <div>
         <h1>{{ t("keys.title") }}</h1>
-        <p class="page-sub">
-          {{ t("keys.subtitle") }}
-        </p>
+        <p class="page-sub">{{ t("keys.subtitle") }}</p>
       </div>
       <NSpace>
         <NButton type="primary" @click="onCreateClick">
@@ -248,6 +209,7 @@ function onCreateClick() {
         </NButton>
         <NButton
           v-if="auth.can('keys:tenant') && tab === 'mine'"
+          secondary
           @click="openCreate('tenant')"
         >
           {{ t("keys.createTenantKey") }}
@@ -255,24 +217,32 @@ function onCreateClick() {
       </NSpace>
     </div>
 
-    <NAlert type="info" :bordered="false" style="margin-bottom: 1rem">
-      {{ t("keys.bearerLead") }}
-      <code>Authorization: Bearer mch_…</code>
-      {{ t("keys.bearerAgainst") }}
-      <code>{{ servers.gatewayUrl }}</code>.
-      {{ t("keys.bearerCeiling") }}
-      <template v-if="auth.can('keys:tenant')">
-        {{ t("keys.tenantSuffix") }}
-      </template>
-      .
-    </NAlert>
-
-    <GrantsCeilingHint
-      :grants="ceiling"
-      :unrestricted="auth.can('mcp:full')"
-      :label="t('keys.grantCeiling')"
-      style="margin-bottom: 1rem"
-    />
+    <section class="info-panel">
+      <div class="info-hero">
+        <div class="info-mark" aria-hidden="true">
+          <NIcon :component="KeyOutline" :size="20" />
+        </div>
+        <div>
+          <div class="info-kicker">{{ t("keys.usageKicker") }}</div>
+          <p class="info-blurb">
+            {{ t("keys.bearerLead") }}
+            <code>Authorization: Bearer mch_…</code>
+            {{ t("keys.bearerAgainst") }}
+            <code>{{ servers.gatewayUrl }}</code>.
+            {{ t("keys.bearerCeiling") }}
+            <template v-if="auth.can('keys:tenant')">
+              {{ t("keys.tenantSuffix") }}
+            </template>.
+          </p>
+        </div>
+      </div>
+      <GrantsCeilingHint
+        :grants="ceiling"
+        :unrestricted="auth.can('mcp:full')"
+        :label="t('keys.grantCeiling')"
+        class="ceiling-slot"
+      />
+    </section>
 
     <div class="filters">
       <button
@@ -301,7 +271,7 @@ function onCreateClick() {
       </button>
     </div>
 
-    <NTabs v-model:value="tab" type="line" animated>
+    <NTabs v-model:value="tab" type="line" animated class="keys-tabs">
       <NTabPane name="mine" :tab="t('keys.myKeys', { count: tabCount('mine') })">
         <NEmpty
           v-if="!loading && !myKeys.length"
@@ -328,94 +298,14 @@ function onCreateClick() {
           </template>
         </NEmpty>
         <div v-else class="cards">
-          <NCard
+          <ApiKeyCard
             v-for="key in visibleMyKeys"
             :key="key.id"
-            size="small"
-            hoverable
-            class="key-card"
-            :class="{ revoked: !!key.revokedAt }"
-          >
-            <NThing>
-              <template #header>
-                <span class="title">{{ key.name }}</span>
-              </template>
-              <template #header-extra>
-                <NTag
-                  v-if="key.revokedAt"
-                  size="small"
-                  type="error"
-                  :bordered="false"
-                >
-                  {{ t("keys.revoked") }}
-                </NTag>
-                <NTag v-else size="small" type="success" :bordered="false">
-                  {{ t("keys.active") }}
-                </NTag>
-              </template>
-              <template #description>
-                <code class="prefix">{{ key.keyPrefix }}…</code>
-              </template>
-
-              <div class="card-body">
-                <NSpace :size="6" class="meta">
-                  <NTag
-                    v-for="label in scopeTags(key.scopes)"
-                    :key="label"
-                    size="tiny"
-                    :bordered="false"
-                  >
-                    {{ label }}
-                  </NTag>
-                </NSpace>
-                <NText depth="3" class="scopes-line">
-                  {{ scopesLabel(key.scopes) }}
-                </NText>
-                <div class="dates">
-                  <NText depth="3">
-                    {{ t("keys.created", { when: formatWhen(key.createdAt) }) }}
-                  </NText>
-                  <NText v-if="key.lastUsedAt" depth="3" class="detail-sep">
-                    {{ t("keys.lastUsed", { when: formatWhen(key.lastUsedAt) }) }}
-                  </NText>
-                  <NText v-else depth="3" class="detail-sep">
-                    {{ t("keys.neverUsed") }}
-                  </NText>
-                  <NText
-                    v-if="key.expiresAt"
-                    depth="3"
-                    class="detail-sep"
-                  >
-                    {{ t("keys.expires", { when: formatWhen(key.expiresAt) }) }}
-                  </NText>
-                </div>
-              </div>
-
-              <template #action>
-                <NSpace class="card-actions">
-                  <NButton
-                    size="small"
-                    :disabled="!!key.revokedAt"
-                    @click="goConnect(key)"
-                  >
-                    {{ t("keys.connect") }}
-                  </NButton>
-                  <NButton size="small" quaternary @click="copyPrefix(key)">
-                    {{ t("keys.copyPrefix") }}
-                  </NButton>
-                  <NButton
-                    size="small"
-                    type="error"
-                    secondary
-                    :disabled="!!key.revokedAt"
-                    @click="revoke(key, 'user')"
-                  >
-                    {{ t("keys.revoke") }}
-                  </NButton>
-                </NSpace>
-              </template>
-            </NThing>
-          </NCard>
+            :api-key="key"
+            @connect="goConnect(key)"
+            @copy-prefix="copyPrefix(key)"
+            @revoke="revoke(key, 'user')"
+          />
         </div>
       </NTabPane>
 
@@ -449,99 +339,15 @@ function onCreateClick() {
           </template>
         </NEmpty>
         <div v-else class="cards">
-          <NCard
+          <ApiKeyCard
             v-for="key in visibleTenantKeys"
             :key="key.id"
-            size="small"
-            hoverable
-            class="key-card"
-            :class="{ revoked: !!key.revokedAt }"
-          >
-            <NThing>
-              <template #header>
-                <span class="title">{{ key.name }}</span>
-              </template>
-              <template #header-extra>
-                <NSpace :size="6">
-                  <NTag size="small" type="warning" :bordered="false">
-                    {{ t("keys.tenant") }}
-                  </NTag>
-                  <NTag
-                    v-if="key.revokedAt"
-                    size="small"
-                    type="error"
-                    :bordered="false"
-                  >
-                    {{ t("keys.revoked") }}
-                  </NTag>
-                  <NTag v-else size="small" type="success" :bordered="false">
-                    {{ t("keys.active") }}
-                  </NTag>
-                </NSpace>
-              </template>
-              <template #description>
-                <code class="prefix">{{ key.keyPrefix }}…</code>
-              </template>
-
-              <div class="card-body">
-                <NSpace :size="6" class="meta">
-                  <NTag
-                    v-for="label in scopeTags(key.scopes)"
-                    :key="label"
-                    size="tiny"
-                    :bordered="false"
-                  >
-                    {{ label }}
-                  </NTag>
-                </NSpace>
-                <NText depth="3" class="scopes-line">
-                  {{ scopesLabel(key.scopes) }}
-                </NText>
-                <div class="dates">
-                  <NText depth="3">
-                    {{ t("keys.created", { when: formatWhen(key.createdAt) }) }}
-                  </NText>
-                  <NText v-if="key.lastUsedAt" depth="3" class="detail-sep">
-                    {{ t("keys.lastUsed", { when: formatWhen(key.lastUsedAt) }) }}
-                  </NText>
-                  <NText v-else depth="3" class="detail-sep">
-                    {{ t("keys.neverUsed") }}
-                  </NText>
-                  <NText
-                    v-if="key.expiresAt"
-                    depth="3"
-                    class="detail-sep"
-                  >
-                    {{ t("keys.expires", { when: formatWhen(key.expiresAt) }) }}
-                  </NText>
-                </div>
-              </div>
-
-              <template #action>
-                <NSpace class="card-actions">
-                  <NButton
-                    size="small"
-                    :disabled="!!key.revokedAt"
-                    @click="goConnect(key)"
-                  >
-                    {{ t("keys.connect") }}
-                  </NButton>
-                  <NButton size="small" quaternary @click="copyPrefix(key)">
-                    {{ t("keys.copyPrefix") }}
-                  </NButton>
-                  <NButton
-                    size="small"
-                    type="error"
-                    secondary
-                    :disabled="!!key.revokedAt"
-                    @click="revoke(key, 'tenant')"
-                  >
-                    {{ t("keys.revoke") }}
-                  </NButton>
-                </NSpace>
-              </template>
-            </NThing>
-          </NCard>
+            :api-key="key"
+            tenant
+            @connect="goConnect(key)"
+            @copy-prefix="copyPrefix(key)"
+            @revoke="revoke(key, 'tenant')"
+          />
         </div>
       </NTabPane>
     </NTabs>
@@ -549,25 +355,27 @@ function onCreateClick() {
     <NModal
       v-model:show="createOpen"
       preset="card"
+      class="key-create-modal"
       :title="createMode === 'tenant' ? t('keys.createTenantApiKey') : t('keys.createApiKey')"
       style="width: min(560px, 96vw)"
+      :bordered="false"
       :mask-closable="!revealedSecret"
     >
       <div v-if="revealedSecret" class="reveal">
-        <NAlert type="warning" :bordered="false">
+        <div class="banner banner-warn">
           {{ t("keys.secretWarning") }}
-        </NAlert>
-        <NInput
-          class="secret"
-          type="textarea"
-          :value="revealedSecret"
-          readonly
-          :autosize="{ minRows: 2, maxRows: 4 }"
-        />
+        </div>
+        <pre class="secret-block"><code>{{ revealedSecret }}</code></pre>
         <NSpace justify="end">
-          <NButton @click="copySecret">{{ t("common.copy") }}</NButton>
+          <NButton @click="copySecret">
+            <template #icon>
+              <NIcon :component="CopyOutline" />
+            </template>
+            {{ t("common.copy") }}
+          </NButton>
           <NButton
             v-if="revealedKeyId"
+            secondary
             @click="
               createOpen = false;
               router.push({
@@ -581,13 +389,13 @@ function onCreateClick() {
           <NButton type="primary" @click="createOpen = false">{{ t("keys.done") }}</NButton>
         </NSpace>
       </div>
-      <div v-else>
+      <div v-else class="create-form">
         <label class="field">
-          <span>{{ t("keys.name") }}</span>
+          <span class="field-label">{{ t("keys.name") }}</span>
           <NInput v-model:value="form.name" :placeholder="t('keys.namePlaceholder')" />
         </label>
         <div class="field">
-          <span>{{ t("keys.scopes") }}</span>
+          <span class="field-label">{{ t("keys.scopes") }}</span>
           <GrantsCeilingHint
             v-if="createMode === 'user'"
             :grants="ceiling"
@@ -619,11 +427,76 @@ function onCreateClick() {
 </template>
 
 <style scoped>
+.keys-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.info-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 1.1rem 1.15rem;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--app-chip-active-text) 32%, var(--app-border));
+  background:
+    linear-gradient(
+      155deg,
+      color-mix(in srgb, var(--app-chip-active-text) 12%, transparent),
+      transparent 55%
+    ),
+    var(--app-surface);
+}
+.info-hero {
+  display: flex;
+  gap: 0.85rem;
+  align-items: flex-start;
+}
+.info-mark {
+  flex: 0 0 auto;
+  width: 2.7rem;
+  height: 2.7rem;
+  border-radius: 11px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: linear-gradient(145deg, #0d8660 0%, #0b6e4f 55%, #095a41 100%);
+  box-shadow: 0 8px 18px color-mix(in srgb, #0b6e4f 26%, transparent);
+}
+:global(html[data-theme="dark"]) .info-mark {
+  color: #0f161c;
+  background: linear-gradient(145deg, #56d9a8 0%, #3ecf9a 55%, #2bb884 100%);
+  box-shadow: 0 8px 20px color-mix(in srgb, #3ecf9a 20%, transparent);
+}
+.info-kicker {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--app-text-muted);
+  margin-bottom: 0.25rem;
+}
+.info-blurb {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--app-text-soft);
+}
+.info-blurb code {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.82em;
+  word-break: break-all;
+  color: var(--app-text);
+}
+.ceiling-slot {
+  margin-bottom: 0 !important;
+}
+
 .filters {
   display: flex;
   flex-wrap: wrap;
   gap: 0.45rem;
-  margin-bottom: 0.85rem;
 }
 .chip {
   border: 1px solid var(--app-border);
@@ -645,88 +518,87 @@ function onCreateClick() {
   border-color: var(--app-chip-active-border);
   color: var(--app-chip-active-text);
 }
-.key-card {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
+
+.keys-tabs :deep(.n-tabs-nav) {
+  margin-bottom: 0.85rem;
 }
-.key-card.revoked {
-  opacity: 0.78;
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 0.9rem;
+  align-items: stretch;
 }
-.key-card :deep(.n-card__content) {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-.key-card :deep(.n-thing) {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-.key-card :deep(.n-thing-main) {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-.key-card :deep(.n-thing-main__content) {
-  flex: 1;
-}
-.key-card :deep(.n-thing-main__action) {
-  margin-top: auto;
-  padding-top: 0.85rem;
-}
-.card-body {
-  display: flex;
-  flex-direction: column;
-  gap: 0.45rem;
-  margin-top: 0.15rem;
-}
-.title {
-  font-weight: 600;
-  font-size: 1.05rem;
-  color: var(--app-text);
-}
-.prefix {
-  font-size: 0.82rem;
-  color: var(--app-text-muted);
-}
-.meta {
-  margin: 0;
-}
-.scopes-line {
-  font-size: 0.85rem;
-  word-break: break-word;
-  line-height: 1.4;
-}
-.dates {
-  font-size: 0.78rem;
-  line-height: 1.35;
-}
-.detail-sep {
-  margin-left: 0.15rem;
-}
-.card-actions {
-  width: 100%;
-}
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-  margin-bottom: 0.9rem;
-}
-.field > span {
-  font-size: 0.88rem;
-  opacity: 0.8;
-}
+
 .reveal {
   display: flex;
   flex-direction: column;
   gap: 0.85rem;
 }
-.secret {
-  font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+.banner {
+  padding: 0.75rem 0.9rem;
+  border-radius: 11px;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  border: 1px solid var(--app-border);
+}
+.banner-warn {
+  background: color-mix(in srgb, #b8860b 12%, transparent);
+  border-color: color-mix(in srgb, #b8860b 30%, transparent);
+  color: var(--app-text-soft);
+}
+:global(html[data-theme="dark"]) .banner-warn {
+  background: color-mix(in srgb, #e0b44a 12%, transparent);
+  border-color: color-mix(in srgb, #e0b44a 28%, transparent);
+}
+.secret-block {
+  margin: 0;
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  border: 1px solid var(--app-border);
+  background: #14212b;
+  color: #e8f5ef;
+  overflow-x: auto;
+}
+:global(html[data-theme="dark"]) .secret-block {
+  background: #121920;
+  color: #d7e6df;
+}
+.secret-block code {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.82rem;
+  word-break: break-all;
+  white-space: pre-wrap;
+}
+
+.create-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.95rem;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.field-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--app-text-muted);
+}
+</style>
+
+<style>
+.key-create-modal.n-card {
+  border-radius: 16px !important;
+  overflow: hidden;
+}
+.key-create-modal .n-card-header {
+  padding: 1.1rem 1.25rem 0.75rem !important;
+}
+.key-create-modal .n-card__content {
+  padding: 0.35rem 1.25rem 1.15rem !important;
 }
 </style>

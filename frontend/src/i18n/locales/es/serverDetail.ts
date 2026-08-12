@@ -1,5 +1,5 @@
 export default {
-  backToServers: "← Servidores",
+  backToServers: "Servidores",
   notFound: "No encontrado",
   enabledTitle: "Si está activado, el host mantiene este servidor en ejecución",
   restarts: "Reinicios",

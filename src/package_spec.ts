@@ -85,7 +85,28 @@ const UVX_VALUE_OPTS = new Set([
   "--config-file",
 ]);
 
-/** Split `uvx [options] <package> [tool args…]`. */
+/** Boolean uvx flags (no following value). */
+const UVX_BOOL_OPTS = new Set([
+  "--isolated",
+  "--no-env-file",
+  "--lfs",
+  "--no-progress",
+  "--quiet",
+  "-q",
+  "--verbose",
+  "-v",
+  "--no-cache",
+  "--refresh",
+  "--offline",
+  "--no-python-downloads",
+]);
+
+function uvxOptionName(token: string): string {
+  const eq = token.indexOf("=");
+  return eq === -1 ? token : token.slice(0, eq);
+}
+
+/** Split `uvx [options] <package> [tool args…]`. Unknown dash flags are tool args. */
 export function splitUvxInvocation(args: string[]): {
   options: string[];
   packageSpec: string | null;
@@ -96,11 +117,15 @@ export function splitUvxInvocation(args: string[]): {
   while (i < args.length) {
     const a = String(args[i] ?? "");
     if (!a.startsWith("-")) break;
+    const name = uvxOptionName(a);
+    const isValueOpt = UVX_VALUE_OPTS.has(name);
+    const isBoolOpt = UVX_BOOL_OPTS.has(name);
+    if (!isValueOpt && !isBoolOpt) break;
     options.push(a);
     i++;
-    if (a.includes("=")) continue;
     if (
-      UVX_VALUE_OPTS.has(a) &&
+      isValueOpt &&
+      !a.includes("=") &&
       i < args.length &&
       !String(args[i]).startsWith("-")
     ) {
@@ -120,8 +145,49 @@ export function splitUvxInvocation(args: string[]): {
 
 /** Build uvx args from a package pin plus form extras (options and/or tool flags). */
 export function buildUvxArgs(packageSpec: string, extra: string[]): string[] {
-  const { options, toolArgs } = splitUvxInvocation(extra);
-  return [...options, packageSpec, ...toolArgs];
+  const { options, packageSpec: nestedPkg, toolArgs } = splitUvxInvocation(
+    extra,
+  );
+  // Extra may be options-only, or options + tool flags (no nested package).
+  // If a non-option token appears in extras, treat it as a tool arg.
+  const trailing = nestedPkg ? [nestedPkg, ...toolArgs] : toolArgs;
+  return [...options, packageSpec, ...trailing];
+}
+
+/**
+ * Ensure uvx options (--python, --with, …) sit before the package name.
+ * Fixes saves from older UI that appended Extra args after the package.
+ * Tool flags (e.g. --access-mode) stay after the package.
+ */
+export function normalizeUvxArgs(args: string[]): string[] {
+  if (!args.length) return args;
+
+  // Already option-first: rebuild via the normal splitter.
+  if (String(args[0]).startsWith("-")) {
+    const { options, packageSpec, toolArgs } = splitUvxInvocation(args);
+    if (!packageSpec) return args;
+    return [...options, packageSpec, ...toolArgs];
+  }
+
+  const packageSpec = String(args[0]);
+  const rest = args.slice(1).map(String);
+  const { options, packageSpec: nested, toolArgs } = splitUvxInvocation(rest);
+  // Misordered: package first, then uvx options, then tool args.
+  // splitUvxInvocation on rest will capture leading known opts; anything after
+  // an unknown dash (or nested token) stays as tool args.
+  if (!options.length) return args;
+  const trailing = nested ? [nested, ...toolArgs] : toolArgs;
+  return [...options, packageSpec, ...trailing];
+}
+
+export function normalizeLaunchCommand(
+  command: string,
+  args: string[],
+): { command: string; args: string[] } {
+  if (command === "uvx") {
+    return { command, args: normalizeUvxArgs(args) };
+  }
+  return { command, args };
 }
 
 /** Inspect a server command/args (+ optional git source) for version info. */

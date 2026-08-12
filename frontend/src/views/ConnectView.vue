@@ -3,19 +3,17 @@ import { computed, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import {
-  NAlert,
   NButton,
-  NCard,
   NCollapse,
   NCollapseItem,
+  NIcon,
   NInput,
   NSelect,
   NSpace,
-  NTag,
   NText,
   useMessage,
 } from "naive-ui";
-import GatewayPill from "../components/GatewayPill.vue";
+import { CopyOutline, LinkOutline, OpenOutline } from "@vicons/ionicons5";
 import { getSessionToken } from "../api/client";
 import { connectPlatforms } from "../data/templates";
 import { useAuthStore } from "../stores/auth";
@@ -43,6 +41,7 @@ const selection = ref<string | null>(null);
 const pastedSecret = ref("");
 const testing = ref(false);
 const testResult = ref<{ ok: boolean; message: string } | null>(null);
+const openPlatforms = ref<string[]>([]);
 
 const allKeys = computed(() => [
   ...myKeys.value.map((k) => ({ ...k, _kind: "user" as const })),
@@ -187,6 +186,14 @@ const reachableToolHint = computed(() => {
   });
 });
 
+function platformMonogram(name: string): string {
+  const parts = name.replace(/[()]/g, "").split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return (parts[0]![0]! + parts[1]![0]!).toUpperCase();
+  }
+  return name.slice(0, 2).toUpperCase();
+}
+
 async function testConnection() {
   testResult.value = null;
   testing.value = true;
@@ -303,21 +310,28 @@ async function copyUrl() {
 </script>
 
 <template>
-  <div>
+  <div class="connect-page">
     <div class="page-head">
       <div>
         <h1>{{ t("connect.title") }}</h1>
-        <p class="page-sub">
-          {{ t("connect.subtitle") }}
-        </p>
+        <p class="page-sub">{{ t("connect.subtitle") }}</p>
       </div>
-      <GatewayPill />
     </div>
 
-    <NCard size="small" class="key-picker" :bordered="false">
-      <div class="picker-grid">
+    <section class="setup-panel">
+      <header class="setup-hero">
+        <div class="setup-mark" aria-hidden="true">
+          <NIcon :component="LinkOutline" :size="20" />
+        </div>
         <div>
-          <NText depth="3" class="label">{{ t("connect.apiKeyForSnippets") }}</NText>
+          <div class="setup-kicker">{{ t("connect.setupKicker") }}</div>
+          <h2 class="setup-title">{{ t("connect.setupTitle") }}</h2>
+        </div>
+      </header>
+
+      <div class="picker-grid">
+        <div class="field">
+          <label class="field-label">{{ t("connect.apiKeyForSnippets") }}</label>
           <NSelect
             v-model:value="selectValue"
             :options="selectOptions"
@@ -326,23 +340,21 @@ async function copyUrl() {
             :placeholder="t('connect.selectKey')"
             filterable
           />
-          <NText v-if="!auth.required" depth="3" class="hint">
+          <p v-if="!auth.required" class="field-hint">
             {{ t("connect.authDisabledHint") }}
-          </NText>
-          <NText
+          </p>
+          <p
             v-else-if="!allKeys.length && !keysLoading"
-            depth="3"
-            class="hint"
+            class="field-hint"
           >
             {{ t("connect.noKeysYet") }}
             <a href="#" @click.prevent="router.push('/keys')">{{ t("connect.createOne") }}</a>
             {{ t("connect.toScopeServers") }}
-          </NText>
+          </p>
         </div>
-        <div v-if="selectedKey" class="secret-box">
-          <NText depth="3" class="label">
-            {{ t("connect.pasteSecret") }}
-          </NText>
+
+        <div v-if="selectedKey" class="field">
+          <label class="field-label">{{ t("connect.pasteSecret") }}</label>
           <NInput
             v-model:value="pastedSecret"
             type="password"
@@ -351,33 +363,43 @@ async function copyUrl() {
             :placeholder="`${selectedKey.keyPrefix}…`"
             :input-props="{ spellcheck: false }"
           />
-          <NText depth="3" class="hint">
+          <p class="field-hint">
             {{
               t("connect.secretHint", {
                 placeholder: `${selectedKey.keyPrefix}…PASTE_FULL_SECRET`,
               })
             }}
-          </NText>
+          </p>
         </div>
       </div>
 
-      <div class="url-row">
-        <div>
-          <NText depth="3" class="label">{{ t("connect.mcpUrlInSnippets") }}</NText>
-          <code class="url">{{ mcpTarget.url }}</code>
-          <NTag
-            size="tiny"
-            :bordered="false"
-            style="margin-left: 0.4rem"
-          >
-            {{ mcpTarget.mode === "per-server" ? t("connect.perServer") : t("connect.unified") }}
-          </NTag>
+      <div class="url-card">
+        <div class="url-card-top">
+          <div>
+            <span class="field-label">{{ t("connect.mcpUrlInSnippets") }}</span>
+            <span
+              class="mode-chip"
+              :class="mcpTarget.mode === 'per-server' ? 'mode-per' : 'mode-uni'"
+            >
+              {{
+                mcpTarget.mode === "per-server"
+                  ? t("connect.perServer")
+                  : t("connect.unified")
+              }}
+            </span>
+          </div>
+          <NButton size="tiny" quaternary @click="copyUrl">
+            <template #icon>
+              <NIcon :component="CopyOutline" />
+            </template>
+            {{ t("connect.copyUrl") }}
+          </NButton>
         </div>
-        <NButton size="tiny" @click="copyUrl">{{ t("connect.copyUrl") }}</NButton>
+        <code class="url-value">{{ mcpTarget.url }}</code>
       </div>
 
-      <div v-if="auth.required" class="reach">
-        <NText depth="3" class="label">
+      <div v-if="auth.required" class="reach-block">
+        <span class="field-label">
           {{
             selection === "__oauth__"
               ? t("connect.accountCanReach")
@@ -385,232 +407,505 @@ async function copyUrl() {
               ? t("connect.keyCanReach")
               : t("connect.pickKeyToSee")
           }}
-        </NText>
-        <NSpace v-if="reachable.length" :size="6" style="margin-top: 0.35rem">
-          <NTag
+        </span>
+        <div v-if="reachable.length" class="reach-chips">
+          <span
             v-for="r in reachable"
             :key="r.id"
-            size="small"
-            :bordered="false"
-            type="success"
+            class="reach-chip"
           >
             {{ serverName(r.id) }}
             <template v-if="r.id !== '*'">
               · {{ r.allTools ? t("connect.allTools") : t("connect.toolsCount", { count: r.tools.length }) }}
-              <template v-if="servers.servers.find((s) => s.id === r.id)">
-                · {{ t("connect.liveCount", { count: servers.servers.find((s) => s.id === r.id)?.toolCount ?? 0 }) }}
-              </template>
             </template>
             <template v-else>
               · {{ r.allTools ? t("connect.allTools") : t("connect.limitedTools") }}
             </template>
-          </NTag>
-        </NSpace>
-        <NText v-if="reachableToolHint" depth="3" class="hint">
-          {{ reachableToolHint }}
-        </NText>
-        <NText v-else-if="selectedKey || selection === '__oauth__'" depth="3">
+          </span>
+        </div>
+        <p v-if="reachableToolHint" class="field-hint">{{ reachableToolHint }}</p>
+        <p v-else-if="selectedKey || selection === '__oauth__'" class="field-hint">
           {{ t("connect.noServerScopes") }}
-        </NText>
+        </p>
       </div>
 
-      <NSpace style="margin-top: 0.85rem" align="center">
-        <NButton
-          type="primary"
-          secondary
-          :loading="testing"
-          @click="testConnection"
-        >
+      <div class="test-row">
+        <NButton type="primary" :loading="testing" @click="testConnection">
           {{ t("connect.testConnection") }}
         </NButton>
-        <NText depth="3" class="hint" style="margin: 0">
-          {{ t("connect.testHint") }}
-        </NText>
-      </NSpace>
-      <NAlert
+        <span class="field-hint test-hint">{{ t("connect.testHint") }}</span>
+      </div>
+
+      <div
         v-if="testResult"
-        :type="testResult.ok ? 'success' : 'error'"
-        :bordered="false"
-        style="margin-top: 0.65rem"
+        class="test-result"
+        :class="testResult.ok ? 'ok' : 'err'"
       >
         {{ testResult.message }}
-      </NAlert>
-    </NCard>
+      </div>
+    </section>
 
-    <aside class="notes">
-      <p>
-        {{ t("connect.transport") }} <strong>{{ t("connect.streamableHttp") }}</strong>
-      </p>
-      <ul>
-        <li>
-          <strong>{{ t("connect.unifiedLabel") }}</strong>
+    <section class="tips-grid">
+      <article class="tip-card">
+        <h3>{{ t("connect.transport") }}</h3>
+        <p><strong>{{ t("connect.streamableHttp") }}</strong></p>
+      </article>
+      <article class="tip-card">
+        <h3>{{ t("connect.unifiedLabel") }}</h3>
+        <p>
           <code>{{ servers.gatewayUrl }}</code>
           {{ t("connect.unifiedDesc", { pattern: "serverId__tool" }) }}
-        </li>
-        <li>
-          <strong>{{ t("connect.perServerLabel") }}</strong>
+        </p>
+      </article>
+      <article class="tip-card">
+        <h3>{{ t("connect.perServerLabel") }}</h3>
+        <p>
           <code>{{ servers.gatewayUrl }}/&lt;serverId&gt;</code>
           {{ t("connect.perServerDesc") }}
-        </li>
-        <li v-if="auth.required">
-          <strong>{{ t("connect.authLabel") }}</strong>
+        </p>
+      </article>
+      <article class="tip-card">
+        <h3>{{ t("connect.authLabel") }}</h3>
+        <p v-if="auth.required">
           {{
             t("connect.authEnabledDesc", {
               bearer: "Bearer mch_…",
               session: "mcs_…",
             })
           }}
-        </li>
-        <li v-else>
-          <strong>{{ t("connect.authLabel") }}</strong>
+        </p>
+        <p v-else>
           {{ t("connect.authDisabledDesc", { flag: "AUTH_DISABLED" }) }}
-        </li>
-      </ul>
-    </aside>
+        </p>
+      </article>
+    </section>
 
-    <NCollapse>
-      <NCollapseItem
-        v-for="p in platforms"
-        :key="p.id"
-        :name="p.id"
-        :title="p.name"
-      >
-        <NCard size="small" :bordered="false" content-style="padding: 0">
-          <NText depth="3" class="blurb">{{ p.blurb }}</NText>
-          <ol>
-            <li v-for="(step, i) in p.steps" :key="i">{{ step }}</li>
-          </ol>
-          <div v-for="(snip, i) in p.snippets" :key="i" class="snip">
-            <NSpace justify="space-between" align="center">
-              <NText depth="3">{{ snip.label }}</NText>
-              <NButton size="tiny" @click="copy(snip.code)">{{ t("common.copy") }}</NButton>
-            </NSpace>
-            <pre class="code">{{ snip.code }}</pre>
+    <section class="clients">
+      <div class="section-head">
+        <h2>{{ t("connect.clientsTitle") }}</h2>
+        <NText depth="3">{{ t("connect.clientsSub") }}</NText>
+      </div>
+
+      <NCollapse v-model:expanded-names="openPlatforms" class="client-list">
+        <NCollapseItem
+          v-for="p in platforms"
+          :key="p.id"
+          :name="p.id"
+        >
+          <template #header>
+            <div class="client-head">
+              <span class="client-mark">{{ platformMonogram(p.name) }}</span>
+              <div class="client-titles">
+                <span class="client-name">{{ p.name }}</span>
+                <span class="client-blurb">{{ p.blurb }}</span>
+              </div>
+            </div>
+          </template>
+
+          <div class="client-body">
+            <ol class="client-steps">
+              <li v-for="(step, i) in p.steps" :key="i">{{ step }}</li>
+            </ol>
+
+            <div v-for="(snip, i) in p.snippets" :key="i" class="snip">
+              <div class="snip-top">
+                <span class="field-label">{{ snip.label }}</span>
+                <NButton size="tiny" quaternary @click="copy(snip.code)">
+                  <template #icon>
+                    <NIcon :component="CopyOutline" />
+                  </template>
+                  {{ t("common.copy") }}
+                </NButton>
+              </div>
+              <pre class="cmd-block"><code>{{ snip.code }}</code></pre>
+            </div>
+
+            <a
+              v-if="p.docs"
+              class="docs-link"
+              :href="p.docs"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <span>{{ t("connect.docs") }} {{ p.docs }}</span>
+              <NIcon :component="OpenOutline" :size="16" />
+            </a>
           </div>
-          <p v-if="p.docs" class="docs">
-            {{ t("connect.docs") }}
-            <a :href="p.docs" target="_blank" rel="noopener">{{ p.docs }}</a>
-          </p>
-        </NCard>
-      </NCollapseItem>
-    </NCollapse>
+        </NCollapseItem>
+      </NCollapse>
+    </section>
   </div>
 </template>
 
 <style scoped>
-.key-picker {
-  --n-color: color-mix(
-    in srgb,
-    var(--app-chip-active-text) 10%,
-    var(--app-surface)
-  );
-  --n-border-color: color-mix(
-    in srgb,
-    var(--app-chip-active-text) 28%,
-    var(--app-border)
-  );
-  background: var(--n-color);
-  border: 1px solid var(--n-border-color);
+.connect-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.35rem;
 }
+
+.setup-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.15rem 1.2rem 1.2rem;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--app-chip-active-text) 35%, var(--app-border));
+  background:
+    linear-gradient(
+      155deg,
+      color-mix(in srgb, var(--app-chip-active-text) 12%, transparent),
+      transparent 55%
+    ),
+    var(--app-surface);
+}
+
+.setup-hero {
+  display: flex;
+  gap: 0.85rem;
+  align-items: center;
+}
+.setup-mark {
+  width: 2.7rem;
+  height: 2.7rem;
+  border-radius: 11px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: linear-gradient(145deg, #0d8660 0%, #0b6e4f 55%, #095a41 100%);
+  box-shadow: 0 8px 18px color-mix(in srgb, #0b6e4f 26%, transparent);
+}
+:global(html[data-theme="dark"]) .setup-mark {
+  color: #0f161c;
+  background: linear-gradient(145deg, #56d9a8 0%, #3ecf9a 55%, #2bb884 100%);
+  box-shadow: 0 8px 20px color-mix(in srgb, #3ecf9a 20%, transparent);
+}
+.setup-kicker {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--app-text-muted);
+}
+.setup-title {
+  margin: 0.1rem 0 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--app-text);
+}
+
 .picker-grid {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 0.85rem;
+  gap: 0.9rem;
 }
 @media (min-width: 720px) {
   .picker-grid {
     grid-template-columns: 1fr 1fr;
   }
 }
-.label {
-  display: block;
-  font-size: 0.78rem;
-  margin-bottom: 0.3rem;
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+.field-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  color: var(--app-text-muted);
 }
-.hint {
-  display: block;
-  margin-top: 0.35rem;
+.field-hint {
+  margin: 0;
   font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--app-text-muted);
 }
-.hint a {
-  color: var(--n-primary-color, #0b6e4f);
+.field-hint a {
+  color: var(--app-chip-active-text);
+  text-decoration: none;
+  font-weight: 600;
+}
+.field-hint a:hover {
   text-decoration: underline;
 }
-.url-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.75rem;
-  margin-top: 0.9rem;
-  padding-top: 0.85rem;
-  border-top: 1px solid
-    color-mix(in srgb, var(--n-primary-color, #0b6e4f) 15%, transparent);
-}
-.url {
-  font-size: 0.85rem;
-  word-break: break-all;
-}
-.reach {
-  margin-top: 0.85rem;
-}
-.notes {
-  margin: 1rem 0 1.15rem;
-  padding: 0.85rem 1rem;
-  border-radius: 10px;
+
+.url-card {
+  display: grid;
+  gap: 0.4rem;
+  padding: 0.85rem 0.95rem;
+  border-radius: 12px;
   border: 1px solid var(--app-border);
-  background: color-mix(in srgb, var(--app-text) 4%, transparent);
-  color: var(--app-text-soft);
+  background: var(--app-surface);
+}
+.url-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.url-card-top > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+}
+.mode-chip {
+  border-radius: 999px;
+  padding: 0.12rem 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 650;
+  border: 1px solid var(--app-border);
+  background: var(--app-surface-raised);
+  color: var(--app-text-muted);
+}
+.mode-uni {
+  background: var(--app-chip-active-bg);
+  border-color: var(--app-chip-active-border);
+  color: var(--app-chip-active-text);
+}
+.url-value {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.82rem;
+  word-break: break-all;
+  color: var(--app-text);
+}
+
+.reach-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+.reach-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.reach-chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: var(--app-chip-active-bg);
+  border: 1px solid var(--app-chip-active-border);
+  color: var(--app-chip-active-text);
+}
+
+.test-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem 0.85rem;
+}
+.test-hint {
+  margin: 0 !important;
+}
+.test-result {
+  padding: 0.75rem 0.9rem;
+  border-radius: 11px;
   font-size: 0.88rem;
   line-height: 1.45;
+  border: 1px solid var(--app-border);
 }
-.notes p {
-  margin: 0 0 0.45rem;
+.test-result.ok {
+  background: var(--app-chip-active-bg);
+  border-color: var(--app-chip-active-border);
+  color: var(--app-chip-active-text);
 }
-.notes ul {
+.test-result.err {
+  background: color-mix(in srgb, #c23b3b 12%, transparent);
+  border-color: color-mix(in srgb, #c23b3b 32%, transparent);
+  color: #c23b3b;
+}
+:global(html[data-theme="dark"]) .test-result.err {
+  color: #f07178;
+  background: color-mix(in srgb, #f07178 12%, transparent);
+  border-color: color-mix(in srgb, #f07178 30%, transparent);
+}
+
+.tips-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.75rem;
+}
+.tip-card {
+  padding: 0.9rem 1rem;
+  border-radius: 12px;
+  border: 1px solid var(--app-border);
+  background: var(--app-surface);
+}
+.tip-card h3 {
+  margin: 0 0 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--app-text-muted);
+}
+.tip-card p {
   margin: 0;
-  padding-left: 1.1rem;
+  font-size: 0.86rem;
+  line-height: 1.45;
+  color: var(--app-text-soft);
+}
+.tip-card code {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.78rem;
+  word-break: break-all;
+  color: var(--app-text);
+}
+
+.section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.45rem 0.75rem;
+  margin-bottom: 0.75rem;
+}
+.section-head h2 {
+  margin: 0;
+  font-size: 1.1rem;
+  letter-spacing: -0.02em;
+  color: var(--app-text);
+}
+
+.client-list :deep(.n-collapse-item) {
+  margin-bottom: 0.65rem;
+  border-radius: 14px;
+  border: 1px solid var(--app-border);
+  background: var(--app-surface);
+  overflow: hidden;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+.client-list :deep(.n-collapse-item:hover) {
+  border-color: color-mix(in srgb, var(--app-chip-active-text) 40%, var(--app-border));
+}
+.client-list :deep(.n-collapse-item__header) {
+  padding: 0.85rem 1rem !important;
+}
+.client-list :deep(.n-collapse-item__content-inner) {
+  padding: 0 1rem 1rem !important;
+}
+.client-list :deep(.n-collapse-item__header-main) {
+  flex: 1;
+  min-width: 0;
+}
+
+.client-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  min-width: 0;
+  width: 100%;
+  padding-right: 0.35rem;
+}
+.client-mark {
+  flex: 0 0 auto;
+  width: 2.35rem;
+  height: 2.35rem;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  color: #fff;
+  background: linear-gradient(145deg, #0d8660 0%, #0b6e4f 55%, #095a41 100%);
+}
+:global(html[data-theme="dark"]) .client-mark {
+  color: #0f161c;
+  background: linear-gradient(145deg, #56d9a8 0%, #3ecf9a 55%, #2bb884 100%);
+}
+.client-titles {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.client-name {
+  font-weight: 700;
+  font-size: 0.98rem;
+  letter-spacing: -0.02em;
+  color: var(--app-text);
+}
+.client-blurb {
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: var(--app-text-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.client-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding-top: 0.15rem;
+  border-top: 1px solid var(--app-border);
+  margin-top: 0.15rem;
+  padding-top: 0.85rem;
+}
+.client-steps {
+  margin: 0;
+  padding-left: 1.15rem;
+  color: var(--app-text-soft);
+  font-size: 0.9rem;
+  line-height: 1.5;
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
 }
-.notes li code {
-  font-size: 0.82em;
-  word-break: break-all;
-}
-.blurb {
-  display: block;
-  margin-bottom: 0.75rem;
-}
-ol {
-  margin: 0 0 1rem;
-  padding-left: 1.2rem;
-  color: var(--app-text-soft);
-  line-height: 1.5;
-}
+
 .snip {
-  margin-bottom: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
 }
-.code {
-  margin: 0.4rem 0 0;
+.snip-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.cmd-block {
+  margin: 0;
   padding: 0.85rem 1rem;
-  border-radius: 10px;
-  background: #0f1a21;
-  color: #d7e2ea;
+  border-radius: 12px;
+  border: 1px solid var(--app-border);
+  background: #14212b;
+  color: #e8f5ef;
+  overflow-x: auto;
+}
+:global(html[data-theme="dark"]) .cmd-block {
+  background: #121920;
+  color: #d7e6df;
+}
+.cmd-block code {
   font-family: "IBM Plex Mono", ui-monospace, monospace;
   font-size: 0.78rem;
-  overflow: auto;
+  line-height: 1.45;
   white-space: pre-wrap;
   word-break: break-word;
 }
-.docs {
-  margin: 0;
-  font-size: 0.85rem;
-  color: var(--app-text-muted);
+
+.docs-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+  color: var(--app-chip-active-text);
+  text-decoration: none;
+  word-break: break-all;
 }
-.docs a {
-  color: var(--n-primary-color, #0b6e4f);
+.docs-link:hover {
   text-decoration: underline;
 }
 </style>

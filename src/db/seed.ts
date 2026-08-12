@@ -1,9 +1,10 @@
 import type { CreateServerInput } from "./types.ts";
 import type { ServerRepository } from "./repos/servers.ts";
-import type {
-  LibraryCategoryInput,
-  LibraryItemInput,
-  LibraryRepository,
+import {
+  normalizeLibraryPreset,
+  type LibraryCategoryInput,
+  type LibraryItemInput,
+  type LibraryRepository,
 } from "./repos/library.ts";
 
 type SeedFile = {
@@ -137,9 +138,14 @@ export async function seedIfEmpty(
         console.error(`[db] seeded library item ${item.id}`);
         continue;
       }
-      // Refresh catalog metadata / featured flags without wiping custom presets.
+      // Keep catalog metadata + install presets in sync with the seed file.
+      // Library rows are catalog templates (installed servers keep their own config).
       const prevTags = JSON.stringify(prev.tags ?? []);
       const nextTags = JSON.stringify(item.tags ?? []);
+      const prevPreset = JSON.stringify(prev.preset ?? {});
+      const nextPreset = JSON.stringify(
+        normalizeLibraryPreset(item.preset, item.id),
+      );
       if (
         prev.featured !== !!item.featured ||
         prev.sortOrder !== (item.sortOrder ?? 0) ||
@@ -147,7 +153,8 @@ export async function seedIfEmpty(
         prev.name !== item.name ||
         prev.category !== item.category ||
         prev.source !== item.source ||
-        prevTags !== nextTags
+        prevTags !== nextTags ||
+        prevPreset !== nextPreset
       ) {
         await library.update(item.id, {
           name: item.name,
@@ -157,6 +164,7 @@ export async function seedIfEmpty(
           category: item.category,
           featured: item.featured,
           sortOrder: item.sortOrder,
+          preset: item.preset,
         });
         console.error(`[db] refreshed library item ${item.id}`);
       }

@@ -44,19 +44,18 @@
       "blurb": "Recipe manager, shopping lists, meal plans — talk to your Mealie instance.",
       "tags": [
         "uvx",
-        "git",
-        "recipes"
+        "recipes",
+        "self-hosted"
       ],
-      "source": "github.com/rldiao/mealie-mcp-server",
+      "source": "mealie-mcp-server",
       "category": "apps",
       "featured": true,
       "sortOrder": 10,
       "preset": {
         "id": "mealie",
         "name": "Mealie",
-        "launcher": "custom",
-        "command": "uvx",
-        "argsLines": "--python\n3.12\n--from\ngit+https://github.com/rldiao/mealie-mcp-server\n--with\nmcp[cli]>=1.12.0,<2\nmealie-mcp-server",
+        "launcher": "uvx",
+        "package": "mealie-mcp-server",
         "env": [
           {
             "key": "MEALIE_BASE_URL",
@@ -144,7 +143,7 @@
           {
             "key": "HOMEASSISTANT_URL",
             "value": "http://homeassistant.local:8123",
-            "required": false,
+            "required": true,
             "description": "Base URL of your instance (cloud or self-hosted)."
           },
           {
@@ -253,7 +252,7 @@
       "name": "Jellyfin",
       "blurb": "Browse and control your self-hosted Jellyfin media library.",
       "tags": [
-        "uvx",
+        "npx",
         "media",
         "self-hosted"
       ],
@@ -264,13 +263,13 @@
       "preset": {
         "id": "jellyfin",
         "name": "Jellyfin",
-        "launcher": "uvx",
+        "launcher": "npx",
         "package": "jellyfin-mcp",
         "env": [
           {
             "key": "JELLYFIN_URL",
             "value": "http://localhost:8096",
-            "required": false,
+            "required": true,
             "description": "Base URL of your instance (cloud or self-hosted)."
           },
           {
@@ -414,13 +413,14 @@
     {
       "id": "brave-search",
       "name": "Brave Search",
-      "blurb": "Web and local search via the Brave Search API.",
+      "blurb": "Official Brave Search MCP — web, news, images, video, and local search.",
       "tags": [
         "npx",
         "web",
-        "search"
+        "search",
+        "official"
       ],
-      "source": "@modelcontextprotocol/server-brave-search",
+      "source": "@brave/brave-search-mcp-server",
       "category": "web",
       "featured": true,
       "sortOrder": 70,
@@ -428,7 +428,7 @@
         "id": "brave-search",
         "name": "Brave Search",
         "launcher": "npx",
-        "package": "@modelcontextprotocol/server-brave-search",
+        "package": "@brave/brave-search-mcp-server",
         "env": [
           {
             "key": "BRAVE_API_KEY",
@@ -492,8 +492,11 @@
         "package": "@upstash/context7-mcp",
         "env": [
           {
-            "key": "",
-            "value": ""
+            "key": "CONTEXT7_API_KEY",
+            "value": "",
+            "required": false,
+            "secret": true,
+            "description": "Optional API key for higher rate limits on Context7."
           }
         ],
         "git": "",
@@ -532,26 +535,29 @@
     {
       "id": "postgres",
       "name": "PostgreSQL",
-      "blurb": "Read-only SQL queries and schema inspection for a Postgres database.",
+      "blurb": "Postgres MCP Pro — safe SQL, schema intelligence, explain plans, and health checks.",
       "tags": [
-        "npx",
+        "uvx",
         "database",
         "sql"
       ],
-      "source": "@modelcontextprotocol/server-postgres",
+      "source": "postgres-mcp",
       "category": "utilities",
       "featured": false,
       "sortOrder": 110,
       "preset": {
         "id": "postgres",
         "name": "PostgreSQL",
-        "launcher": "npx",
-        "package": "@modelcontextprotocol/server-postgres",
-        "extraArgs": "postgresql://localhost/mydb",
+        "launcher": "uvx",
+        "package": "postgres-mcp",
+        "extraArgs": "--access-mode=unrestricted",
         "env": [
           {
-            "key": "",
-            "value": ""
+            "key": "DATABASE_URI",
+            "value": "postgresql://username:password@localhost:5432/dbname",
+            "required": true,
+            "secret": true,
+            "description": "Postgres connection URI (user, password, host, database)."
           }
         ],
         "git": "",
@@ -998,16 +1004,16 @@
         "observability",
         "self-hosted"
       ],
-      "source": "mcp-remote (Netdata /mcp)",
+      "source": "mcp-remote",
       "category": "apps",
       "featured": false,
       "sortOrder": 22,
       "preset": {
         "id": "netdata",
         "name": "Netdata",
-        "launcher": "custom",
-        "command": "npx",
-        "argsLines": "-y\nmcp-remote@latest\n--http\nhttp://YOUR_NETDATA:19999/mcp\n--header\nAuthorization: Bearer YOUR_API_KEY",
+        "launcher": "npx",
+        "package": "mcp-remote",
+        "extraArgs": "--http http://YOUR_NETDATA:19999/mcp --header \"Authorization: Bearer YOUR_API_KEY\"",
         "env": [
           {
             "key": "",
@@ -1016,7 +1022,7 @@
         ],
         "git": "",
         "ref": "",
-        "startNow": true
+        "startNow": false
       }
     },
     {

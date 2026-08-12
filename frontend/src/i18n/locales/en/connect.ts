@@ -134,12 +134,12 @@ export default {
     bifrost: {
       name: "Bifrost",
       blurb:
-        "Add the unified gateway, or one Bifrost client per /mcp/<serverId> for cleaner upstream org.",
+        "Add the unified gateway, or one Bifrost client per /mcp/{'<'}serverId{'>'} for cleaner upstream org.",
       steps: [
         "In Bifrost: MCP Gateway → New MCP Server (or Clients).",
         "Connection type: HTTP (Streamable HTTP).",
         "For everything: connection URL = unified /mcp below.",
-        "For one backend: connection URL = /mcp/<serverId> (e.g. …/mcp/portainer) — tools keep original names.",
+        "For one backend: connection URL = /mcp/{'<'}serverId{'>'} (e.g. …/mcp/portainer) — tools keep original names.",
         "If Bifrost runs on another host, use a reachable MCP Hoster address.",
       ],
       authHeaders:

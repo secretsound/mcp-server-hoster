@@ -169,6 +169,7 @@ async function submit() {
 .login-card {
   width: min(420px, 100%);
   border-radius: 16px;
+  z-index: 1;
 }
 .brand {
   display: flex;
@@ -203,32 +204,15 @@ async function submit() {
   gap: 0.85rem;
 }
 .login-field {
-  display: flex !important;
+  display: flex;
   flex-direction: column;
   gap: 0.35rem;
-  visibility: visible !important;
-  opacity: 1 !important;
-  height: auto !important;
-  max-height: none !important;
-  overflow: visible !important;
-  position: relative !important;
-  clip: auto !important;
-  transform: none !important;
 }
 .login-field-label {
   font-size: 0.9rem;
   color: var(--app-text-soft);
 }
-:deep(#login-email),
-:deep(#login-password),
-:deep(#login-email .n-input),
-:deep(#login-password .n-input),
-:deep(#login-email .n-input-wrapper),
-:deep(#login-password .n-input-wrapper) {
-  display: flex !important;
-  visibility: visible !important;
-  opacity: 1 !important;
-  min-height: 34px;
+.login-field :deep(.n-input) {
   width: 100%;
 }
 </style>

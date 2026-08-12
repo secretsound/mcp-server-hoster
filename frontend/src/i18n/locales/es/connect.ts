@@ -137,12 +137,12 @@ export default {
     bifrost: {
       name: "Bifrost",
       blurb:
-        "Añade la puerta de enlace unificada, o un cliente Bifrost por /mcp/<serverId> para una organización upstream más clara.",
+        "Añade la puerta de enlace unificada, o un cliente Bifrost por /mcp/{'<'}serverId{'>'} para una organización upstream más clara.",
       steps: [
         "En Bifrost: MCP Gateway → New MCP Server (o Clients).",
         "Tipo de conexión: HTTP (Streamable HTTP).",
         "Para todo: URL de conexión = /mcp unificado de abajo.",
-        "Para un backend: URL de conexión = /mcp/<serverId> (p. ej. …/mcp/portainer) — las herramientas conservan nombres originales.",
+        "Para un backend: URL de conexión = /mcp/{'<'}serverId{'>'} (p. ej. …/mcp/portainer) — las herramientas conservan nombres originales.",
         "Si Bifrost corre en otro host, usa una dirección alcanzable de MCP Hoster.",
       ],
       authHeaders:

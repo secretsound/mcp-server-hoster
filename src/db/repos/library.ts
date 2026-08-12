@@ -95,7 +95,10 @@ function parseJson<T>(value: unknown, fallback: T): T {
   }
 }
 
-function normalizePreset(raw: unknown, fallbackId: string): LibraryPreset {
+export function normalizeLibraryPreset(
+  raw: unknown,
+  fallbackId: string,
+): LibraryPreset {
   const p = (raw && typeof raw === "object" ? raw : {}) as Partial<LibraryPreset>;
   const launcher = p.launcher === "uvx" || p.launcher === "custom"
     ? p.launcher
@@ -115,7 +118,7 @@ function normalizePreset(raw: unknown, fallbackId: string): LibraryPreset {
       };
       if (typeof row.required === "boolean") out.required = row.required;
       if (row.description != null && String(row.description).trim()) {
-    out.description = String(row.description).trim();
+        out.description = String(row.description).trim();
       }
       if (typeof row.secret === "boolean") out.secret = row.secret;
       return out;
@@ -147,7 +150,7 @@ function rowToItem(row: Record<string, unknown>): LibraryItem {
     category: String(row.category),
     featured: Boolean(row.featured),
     sortOrder: Number(row.sort_order ?? 0),
-    preset: normalizePreset(parseJson(row.preset, {}), id),
+    preset: normalizeLibraryPreset(parseJson(row.preset, {}), id),
     createdAt: String(row.created_at),
     updatedAt: String(row.updated_at),
   };
@@ -270,7 +273,7 @@ export class LibraryRepository {
     const featured = input.featured ? 1 : 0;
     const sortOrder = input.sortOrder ?? 0;
     const tags = JSON.stringify(input.tags ?? []);
-    const preset = JSON.stringify(normalizePreset(input.preset, input.id));
+    const preset = JSON.stringify(normalizeLibraryPreset(input.preset, input.id));
     await this.db.prepare(`
       INSERT INTO library_items (
         id, name, blurb, tags, source, category, featured, sort_order,
@@ -305,7 +308,7 @@ export class LibraryRepository {
       featured: patch.featured ?? existing.featured,
       sortOrder: patch.sortOrder ?? existing.sortOrder,
       preset: patch.preset
-        ? normalizePreset(patch.preset, id)
+        ? normalizeLibraryPreset(patch.preset, id)
         : existing.preset,
       updatedAt: now(),
     };

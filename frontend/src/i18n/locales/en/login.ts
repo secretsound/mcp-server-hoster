@@ -4,7 +4,8 @@ export default {
   orEmail: "or email",
   email: "Email",
   password: "Password",
-  emailPlaceholder: "admin@example.com",
+  // Escape @ — vue-i18n treats bare @ as linked-message syntax.
+  emailPlaceholder: "admin{'@'}example.com",
   emailPasswordRequired: "Email and password are required",
   signIn: "Sign in",
   signedIn: "Signed in",

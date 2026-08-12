@@ -30,7 +30,7 @@ export default {
   authNowRequired: "Auth is now required — sign in with an admin account",
   account: "Account",
   email: "Email",
-  emailPlaceholder: "user@example.com",
+  emailPlaceholder: "user{'@'}example.com",
   displayName: "Display name",
   optional: "Optional",
   role: "Role",

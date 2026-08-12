@@ -4,7 +4,7 @@ export default {
   orEmail: "o correo",
   email: "Correo",
   password: "Contraseña",
-  emailPlaceholder: "admin@ejemplo.com",
+  emailPlaceholder: "admin{'@'}ejemplo.com",
   emailPasswordRequired: "Se requieren correo y contraseña",
   signIn: "Iniciar sesión",
   signedIn: "Sesión iniciada",

@@ -1,7 +1,7 @@
 export default {
   npx: {
     label: "paquete npx",
-    note: "Ejecuta cualquier servidor MCP de Node publicado en npm. Usa npx -y <package> [args].",
+    note: "Ejecuta cualquier servidor MCP de Node publicado en npm. Usa npx -y {'<'}package{'>'} [args].",
   },
   uvx: {
     label: "paquete uvx",

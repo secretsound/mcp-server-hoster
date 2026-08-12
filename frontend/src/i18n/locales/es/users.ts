@@ -31,7 +31,7 @@ export default {
     "Ahora se requiere autenticación — inicia sesión con una cuenta de administrador",
   account: "Cuenta",
   email: "Correo",
-  emailPlaceholder: "usuario@ejemplo.com",
+  emailPlaceholder: "usuario{'@'}ejemplo.com",
   displayName: "Nombre para mostrar",
   optional: "Opcional",
   role: "Rol",
